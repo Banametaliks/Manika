@@ -688,7 +688,8 @@ const HELP = `You can tap the buttons or type short commands:
 • free B  (free stalls in tile B)
 • pending  (who still owes money)
 • new vendor
-Type cancel any time to stop.`
+Tap 🎤 to say any of these instead of typing, e.g. “pay Ramesh ten thousand cash”.
+Type or say cancel any time to stop.`
 
 export const router: Router = (text, ctx) => {
   const s = text.trim()

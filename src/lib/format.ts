@@ -42,7 +42,7 @@ export function dateRange(start: string, end: string): string[] {
 
 /** Parses typed dates: today, yesterday, 16/10, 16-10-2026, 16 oct, 2026-10-16. */
 export function parseDate(input: string, ref = today()): string | null {
-  const s = input.trim().toLowerCase()
+  const s = input.trim().toLowerCase().replace(/(\d+)(?:st|nd|rd|th)\b/, '$1').replace(/\s+of\s+/, ' ')
   if (!s) return null
   if (s === 'today' || s === 'aaj') return ref
   if (s === 'yesterday' || s === 'kal') return addDays(ref, -1)

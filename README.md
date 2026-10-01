@@ -11,6 +11,7 @@ Mobile-first PWA for managing exhibition stalls, vendors and payments. Bookings 
   - `pay ramesh 10k upi`
   - `pay A-5 5000 cash yesterday`
   - `status A-7`, `balance ramesh`, `free B`, `pending`
+- **Voice input**: tap 🎤 in the chat and speak (Indian English). Phrases like “pay Ramesh ten thousand rupees cash”, “A dash 7” or “16th of October” are understood, and saying a button's words (“full”, “cash”, “today”, “save”) taps it. Uses the phone browser's built-in speech recognition (Chrome on Android, Safari on iPhone); needs the site on HTTPS and microphone permission.
 - **Bookings and payments**: search, filter by due or paid, cancel a booking, delete a receipt, share on WhatsApp.
 - **Masters**:
   - Exhibitions (several, sharing one vendor list)
