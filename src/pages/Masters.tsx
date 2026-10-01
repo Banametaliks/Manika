@@ -4,7 +4,7 @@ import { useStore } from '../data/store'
 import type { Account, AccountKind, Exhibition, Stall, Vendor } from '../lib/types'
 import { areaFromSize, fmtDate, inr, inrShort, naturalCompare, today, addDays } from '../lib/format'
 import { groupBy } from '../lib/compute'
-import { Empty, Field, Sheet } from '../components/ui'
+import { ConfirmButton, Empty, Field, Sheet } from '../components/ui'
 
 type Tab = 'exhibitions' | 'stalls' | 'vendors' | 'bank' | 'cash'
 const TABS: [Tab, string][] = [['stalls', 'Stalls'], ['vendors', 'Vendors'], ['bank', 'Bank'], ['cash', 'Cash'], ['exhibitions', 'Exhibitions']]
@@ -100,7 +100,7 @@ function ExhibitionForm({ ex, onClose }: { ex: Exhibition | null; onClose(): voi
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.target.checked })} /> Active (shows first)</label>
         {error && <p className="text-sm text-rose-700">{error}</p>}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {ex && <DeleteButton table="exhibitions" id={ex.id} label="exhibition and its stalls" onDone={onClose} />}
           <button className="btn-primary flex-1" disabled={busy} onClick={save}>Save</button>
         </div>
@@ -114,7 +114,7 @@ function DeleteButton({ table, id, label, onDone }: { table: 'exhibitions' | 'st
   const { busy, error, run } = useSaver(onDone)
   return (
     <>
-      <button className="btn-danger" disabled={busy} onClick={() => confirm(`Delete this ${label}?`) && void run(() => repo.remove(table, id))}>Delete</button>
+      <ConfirmButton disabled={busy} label="Delete" question={`Delete this ${label}? This cannot be undone.`} confirmLabel="Delete" onConfirm={() => void run(() => repo.remove(table, id))} />
       {error && <p className="basis-full text-sm text-rose-700">{error}</p>}
     </>
   )

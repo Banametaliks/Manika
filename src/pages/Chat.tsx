@@ -35,7 +35,6 @@ export default function Chat() {
 
   const last = messages[messages.length - 1]
   const onChip = (c: Chip) => {
-    if (c.href) { window.open(c.href, '_blank', 'noopener'); return }
     if (c.to) { nav(c.to); return }
     void chat.send(c.value ?? c.label, c.label)
   }
@@ -83,10 +82,12 @@ function Bubble({ m, active, onChip }: { m: Msg; active: boolean; onChip(c: Chip
       )}
       {active && m.chips && m.chips.length > 0 && (
         <div className="mt-2 flex max-w-full flex-wrap gap-2">
-          {m.chips.map((c, i) => (
-            <button
+          {m.chips.map((c, i) => {
+            const Tag = c.href ? 'a' : 'button'
+            return (
+            <Tag
               key={i}
-              onClick={() => onChip(c)}
+              {...(c.href ? { href: c.href, target: '_blank', rel: 'noopener' } : { type: 'button' as const, onClick: () => onChip(c) })}
               className={`flex flex-col items-start rounded-xl px-3 py-1.5 text-left text-sm font-medium shadow-sm ring-1 transition active:scale-95 ${
                 c.tone === 'primary'
                   ? 'bg-brand-800 text-white ring-brand-800'
@@ -97,8 +98,9 @@ function Bubble({ m, active, onChip }: { m: Msg; active: boolean; onChip(c: Chip
             >
               <span>{c.label}</span>
               {c.sub && <span className={`text-[11px] font-normal ${c.tone === 'primary' ? 'text-brand-100' : 'text-stone-500'}`}>{c.sub}</span>}
-            </button>
-          ))}
+            </Tag>
+            )
+          })}
         </div>
       )}
     </div>
@@ -122,7 +124,7 @@ function Composer({ hint, onSend, onReset }: { hint?: Msg; onSend(t: string): vo
       <button type="button" title="Start over" aria-label="Start over" onClick={onReset} className="rounded-full p-2 text-stone-500 hover:bg-stone-200">⟲</button>
       {kind === 'date' && (
         <>
-          <button type="button" aria-label="Pick date" onClick={() => dateRef.current?.showPicker?.() ?? dateRef.current?.click()} className="rounded-full p-2 text-xl hover:bg-stone-200">📅</button>
+          <button type="button" aria-label="Pick date" onClick={() => { try { dateRef.current?.showPicker() } catch { dateRef.current?.click() } }} className="rounded-full p-2 text-xl hover:bg-stone-200">📅</button>
           <input
             ref={dateRef}
             type="date"

@@ -59,3 +59,7 @@ supabase/migrations/001_init.sql
 ## Next (Phase 2 ideas)
 
 User roles, PDF receipts and GST invoices, expenses with P&L per exhibition, a floor-plan map, payment reminders, an offline queue, Excel export.
+
+## Preview build
+
+`npm run build:preview` makes `dist-preview/manika-preview.html`: the whole app in one self-contained page (demo mode, no service worker). This is the file published as the shareable preview link.

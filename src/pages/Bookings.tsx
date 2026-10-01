@@ -4,7 +4,7 @@ import { useStore } from '../data/store'
 import type { BookingInfo } from '../lib/compute'
 import { MODE_LABEL, fmtDate, inr } from '../lib/format'
 import { bookingShareText, receiptShareText, waLink } from '../lib/share'
-import { Empty, Pill, Rows, Sheet } from '../components/ui'
+import { ConfirmButton, Empty, Pill, Rows, Sheet } from '../components/ui'
 
 type Filter = 'all' | 'due' | 'paid' | 'cancelled'
 type Tab = 'bookings' | 'payments'
@@ -112,22 +112,20 @@ function BookingSheet({ info, onClose }: { info: BookingInfo; onClose(): void })
   const { repo, exhibition, accounts, refresh } = useStore()
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const b = info.booking
   const cancelled = b.status === 'cancelled'
 
   const run = async (fn: () => Promise<void>) => {
-    setBusy(true)
+    setBusy(true); setError(null)
     try { await fn(); await refresh() }
-    catch (e) { alert(e instanceof Error ? e.message : e) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(false) }
   }
 
-  const cancel = () => {
-    const msg = info.paid > 0
-      ? `Cancel booking #${b.booking_no}? Stalls will become available. ${inr(info.paid)} already received stays on record — settle any refund separately.`
-      : `Cancel booking #${b.booking_no}? Stalls will become available.`
-    if (confirm(msg)) void run(() => repo.cancelBooking(b.id)).then(onClose)
-  }
+  const cancelQuestion = info.paid > 0
+    ? `Cancel booking #${b.booking_no}? Its stalls become available again. The ${inr(info.paid)} already received stays on record; settle any refund separately.`
+    : `Cancel booking #${b.booking_no}? Its stalls become available again.`
 
   const share = exhibition && info.vendor
     ? waLink(info.vendor.phone, bookingShareText({ exhibition, booking: b, vendor: info.vendor, stalls: info.stalls, paid: info.paid }))
@@ -156,32 +154,36 @@ function BookingSheet({ info, onClose }: { info: BookingInfo; onClose(): void })
               ? waLink(info.vendor.phone, receiptShareText({ exhibition, payment: p, vendor: info.vendor, stalls: info.stalls, balance: info.balance }))
               : null
             return (
-              <li key={p.id} className="flex items-center gap-2 py-2">
+              <li key={p.id} className="flex flex-wrap items-center gap-2 py-2">
                 <div className="flex-1">
                   <div className="font-medium">{inr(p.amount)} <span className="font-normal text-stone-500">· {MODE_LABEL[p.mode]}</span></div>
                   <div className="text-xs text-stone-500">#{p.receipt_no} · {fmtDate(p.payment_date)} · {accounts.find((a) => a.id === p.account_id)?.name}{p.reference ? ` · ${p.reference}` : ''}</div>
                 </div>
                 {receipt && <a href={receipt} target="_blank" rel="noopener" className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">WhatsApp</a>}
-                <button
+                <ConfirmButton
                   disabled={busy}
-                  aria-label={`Delete receipt ${p.receipt_no}`}
-                  onClick={() => confirm(`Delete receipt #${p.receipt_no} for ${inr(p.amount)}?`) && void run(() => repo.deletePayment(p.id))}
+                  label="Delete"
                   className="rounded-lg px-2 py-1 text-xs text-rose-700 ring-1 ring-rose-200"
-                >
-                  Delete
-                </button>
+                  question={`Delete receipt #${p.receipt_no} for ${inr(p.amount)}? The balance goes back up by this amount.`}
+                  confirmLabel="Delete receipt"
+                  onConfirm={() => void run(() => repo.deletePayment(p.id))}
+                />
               </li>
             )
           })}
         </ul>
       )}
 
+      {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
       <div className="mt-5 grid gap-2">
         {!cancelled && info.balance > 0 && (
           <button className="btn-primary" onClick={() => nav(`/chat?q=${encodeURIComponent(`pay ${info.stalls[0]?.number ?? ''}`)}`)}>💰 Record payment</button>
         )}
         {share && !cancelled && <a className="btn-ghost" href={share} target="_blank" rel="noopener">📤 Share booking on WhatsApp</a>}
-        {!cancelled && <button className="btn-danger" disabled={busy} onClick={cancel}>Cancel booking</button>}
+        {!cancelled && (
+          <ConfirmButton disabled={busy} label="Cancel booking" question={cancelQuestion} confirmLabel="Yes, cancel booking"
+            onConfirm={() => void run(() => repo.cancelBooking(b.id)).then(onClose)} />
+        )}
       </div>
     </Sheet>
   )

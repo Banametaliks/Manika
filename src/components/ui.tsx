@@ -96,3 +96,28 @@ export function Empty({ children }: { children: ReactNode }) {
 export function Pill({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>{children}</span>
 }
+
+/**
+ * Two-step button for destructive actions: first tap asks, second tap does it.
+ * Used instead of window.confirm(), which some app views block.
+ */
+export function ConfirmButton({ label, question, confirmLabel, onConfirm, disabled, className = 'btn-danger' }: {
+  label: ReactNode
+  question: ReactNode
+  confirmLabel: string
+  onConfirm(): void
+  disabled?: boolean
+  className?: string
+}) {
+  const [asking, setAsking] = useState(false)
+  if (!asking) return <button type="button" className={className} disabled={disabled} onClick={() => setAsking(true)}>{label}</button>
+  return (
+    <div role="alertdialog" className="basis-full rounded-xl bg-rose-50 p-3 text-sm text-rose-900 ring-1 ring-rose-200">
+      <p className="mb-2">{question}</p>
+      <div className="flex gap-2">
+        <button type="button" className="btn flex-1 bg-rose-600 text-white" disabled={disabled} onClick={() => { setAsking(false); onConfirm() }}>{confirmLabel}</button>
+        <button type="button" className="btn-ghost flex-1" onClick={() => setAsking(false)}>Keep it</button>
+      </div>
+    </div>
+  )
+}

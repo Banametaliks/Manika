@@ -11,6 +11,7 @@ import Masters from './pages/Masters'
 import VendorLedger from './pages/VendorLedger'
 import AccountBook from './pages/AccountBook'
 import { useOnline } from './components/ui'
+import icon from './assets/icon.svg'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
@@ -42,7 +43,7 @@ function Shell() {
     <div className="mx-auto flex h-full max-w-xl flex-col">
       <header className="pt-safe sticky top-0 z-20 bg-brand-900 text-white shadow">
         <div className="flex items-center gap-2 px-4 py-3">
-          <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
+          <img src={icon} alt="" className="h-8 w-8 rounded-lg" />
           <div className="min-w-0 flex-1">
             <div className="text-[11px] uppercase tracking-wider text-brand-200">Manika Exhibition</div>
             {exhibitions.length > 1 ? (
@@ -116,7 +117,7 @@ function Tab({ to, icon, label, end }: { to: string; icon: string; label: string
 function Splash() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 bg-brand-900 text-white">
-      <img src="/icon.svg" alt="" className="h-16 w-16 animate-pulse rounded-2xl" />
+      <img src={icon} alt="" className="h-16 w-16 animate-pulse rounded-2xl" />
       <div className="text-sm text-brand-200">Loading…</div>
     </div>
   )

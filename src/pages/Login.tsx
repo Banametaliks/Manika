@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../data/store'
+import icon from '../assets/icon.svg'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -17,7 +18,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center bg-brand-900 px-6">
-      <img src="/icon.svg" alt="" className="mb-4 h-16 w-16 rounded-2xl" />
+      <img src={icon} alt="" className="mb-4 h-16 w-16 rounded-2xl" />
       <h1 className="mb-6 text-xl font-semibold text-white">Manika Exhibition</h1>
       <form onSubmit={submit} className="card w-full max-w-sm space-y-3 p-5">
         <input className="input" type="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />

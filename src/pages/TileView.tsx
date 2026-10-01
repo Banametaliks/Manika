@@ -84,15 +84,16 @@ export function StallSheet({ stall, onClose }: { stall: Stall | null; onClose():
   const { idx, repo, accounts } = useStore()
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   if (!stall) return null
   const st = idx.statusByStall.get(stall.id) ?? 'free'
   const info = idx.bookingByStall.get(stall.id)
   const accName = (id: string) => accounts.find((a) => a.id === id)?.name ?? ''
 
   const toggleBlock = async () => {
-    setBusy(true)
+    setBusy(true); setError(null)
     try { await repo.update('stalls', stall.id, { blocked: !stall.blocked }); onClose() }
-    catch (e) { alert(e instanceof Error ? e.message : e) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(false) }
   }
 
@@ -129,6 +130,7 @@ export function StallSheet({ stall, onClose }: { stall: Stall | null; onClose():
           </ul>
         </div>
       )}
+      {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
       <div className="mt-5 grid gap-2">
         {st === 'free' && <button className="btn-primary" onClick={() => nav(`/chat?q=${encodeURIComponent(`book ${stall.number}`)}`)}>🏷️ Book this stall</button>}
         {info && info.balance > 0 && <button className="btn-primary" onClick={() => nav(`/chat?q=${encodeURIComponent(`pay ${stall.number}`)}`)}>💰 Record payment</button>}
