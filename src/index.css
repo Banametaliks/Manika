@@ -1,14 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #fff7ed;
-  --color-brand-100: #ffedd5;
-  --color-brand-200: #fed7aa;
-  --color-brand-500: #f97316;
-  --color-brand-600: #ea580c;
-  --color-brand-700: #c2410c;
-  --color-brand-800: #9a3412;
-  --color-brand-900: #7c2d12;
+  /* Dark luxury purple (aubergine) with a soft gold accent */
+  --color-brand-50: #f7f3fb;
+  --color-brand-100: #ede4f6;
+  --color-brand-200: #d9c8ec;
+  --color-brand-500: #8a5cc2;
+  --color-brand-600: #6b3fa3;
+  --color-brand-700: #55308a;
+  --color-brand-800: #43216f;
+  --color-brand-900: #2a1245;
+  --color-gold-200: #f1dfae;
+  --color-gold-400: #d4af5a;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
 }
 

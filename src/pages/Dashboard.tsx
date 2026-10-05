@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useStore } from '../data/store'
-import { profitSummary, totals, type TileSummary } from '../lib/compute'
+import { totals, type TileSummary } from '../lib/compute'
 import { fmtDate, inr, inrShort, today } from '../lib/format'
 import { Empty } from '../components/ui'
-import { ProfitCard } from './Expenses'
 
 export default function Dashboard() {
-  const { exhibition, tiles, rows, idx } = useStore()
+  const { exhibition, tiles, rows } = useStore()
   if (!exhibition)
     return <Empty>No exhibition yet. Go to <Link className="font-semibold text-brand-800 underline" to="/masters">Masters</Link> to create one and add stalls.</Empty>
 
@@ -37,10 +36,6 @@ export default function Dashboard() {
           {inr(todayCash + todayBank)} <span className="font-normal text-stone-500">· cash {inrShort(todayCash)} · bank {inrShort(todayBank)}</span>
         </span>
       </section>
-
-      <Link to="/expenses" className="block active:scale-[.99]" aria-label="Profit and expenses">
-        <ProfitCard p={profitSummary(idx, rows.expenses)} compact />
-      </Link>
 
       <div className="flex gap-2">
         <Link to="/chat?q=book" className="btn-primary flex-1">🏷️ Book stall</Link>

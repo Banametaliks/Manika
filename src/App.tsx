@@ -46,7 +46,7 @@ function Shell() {
         <div className="flex items-center gap-2 px-4 py-3">
           <img src={icon} alt="" className="h-8 w-8 rounded-lg" />
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] uppercase tracking-wider text-brand-200">Manika Exhibition</div>
+            <div className="text-[11px] uppercase tracking-wider text-gold-200">Manika Exhibition</div>
             {exhibitions.length > 1 ? (
               <select
                 aria-label="Exhibition"

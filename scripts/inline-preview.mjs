@@ -10,7 +10,7 @@ const css = [...html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g)].map
 const js = [...html.matchAll(/<script type="module"[^>]*src="([^"]+)"/g)].map((m) => read(m[1])).join('\n')
 
 const out = `<title>Manika Exhibition</title>
-<meta name="theme-color" content="#7c2d12">
+<meta name="theme-color" content="#2a1245">
 <style>${css}</style>
 <div id="root"></div>
 <script type="module">${js.replace(/<\/script/gi, '<\\/script')}</script>

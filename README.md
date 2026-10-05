@@ -12,7 +12,8 @@ Mobile-first PWA for managing exhibition stalls, vendors and payments. Bookings 
   - `pay A-5 5000 cash yesterday`
   - `status A-7`, `balance ramesh`, `free B`, `pending`
 - **Voice input**: tap 🎤 in the chat and speak (Indian English). Phrases like “pay Ramesh ten thousand rupees cash”, “A dash 7” or “16th of October” are understood, and saying a button's words (“full”, “cash”, “today”, “save”) taps it. Uses the phone browser's built-in speech recognition (Chrome on Android, Safari on iPhone); needs the site on HTTPS and microphone permission.
-- **Expenses and profit**: record exhibition expenses in the chat (`expense electricity 5000 cash`, `spent 300 tea`, or by voice). The Expenses tab shows booking income − expenses = profit, cash profit so far, what's still to collect, and a breakdown by category. Expenses can be edited or deleted, and they show as money out in the cash and bank books.
+- **Expenses**: record exhibition expenses in the chat (`expense electricity 5000 cash`, `spent 300 tea`, or by voice). The Expenses tab shows total spent, a breakdown by category and every voucher (edit or delete). Expenses show as money out in the cash and bank books.
+- **Profit (Masters → Profit)**: income statement for the selected exhibition: every booking as income, every expense by category, net profit, cash profit so far and what's still to collect. Profit is shown only here, not on the dashboard, Expenses tab or chat.
 - **Bookings and payments**: search, filter by due or paid, cancel a booking, delete a receipt, share on WhatsApp.
 - **Masters**:
   - Exhibitions (several, sharing one vendor list)
@@ -20,6 +21,7 @@ Mobile-first PWA for managing exhibition stalls, vendors and payments. Bookings 
   - Vendors
   - Bank accounts
   - Cash books
+  - Profit
 - **Vendor ledger**: the vendor's history across all exhibitions.
 - **Cash book and bank book**: a running balance per account.
 - **Live updates**: when one phone saves, every other phone refreshes.

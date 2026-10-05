@@ -5,9 +5,10 @@ import type { Account, AccountKind, Exhibition, Stall, Vendor } from '../lib/typ
 import { areaFromSize, fmtDate, inr, inrShort, naturalCompare, today, addDays } from '../lib/format'
 import { groupBy } from '../lib/compute'
 import { ConfirmButton, Empty, Field, Sheet } from '../components/ui'
+import ProfitStatement from './ProfitStatement'
 
-type Tab = 'exhibitions' | 'stalls' | 'vendors' | 'bank' | 'cash'
-const TABS: [Tab, string][] = [['stalls', 'Stalls'], ['vendors', 'Vendors'], ['bank', 'Bank'], ['cash', 'Cash'], ['exhibitions', 'Exhibitions']]
+type Tab = 'exhibitions' | 'stalls' | 'vendors' | 'bank' | 'cash' | 'profit'
+const TABS: [Tab, string][] = [['stalls', 'Stalls'], ['vendors', 'Vendors'], ['bank', 'Bank'], ['cash', 'Cash'], ['exhibitions', 'Exhibitions'], ['profit', 'Profit']]
 
 export default function Masters() {
   const [params, setParams] = useSearchParams()
@@ -26,6 +27,7 @@ export default function Masters() {
       {tab === 'stalls' && <Stalls />}
       {tab === 'vendors' && <Vendors />}
       {(tab === 'bank' || tab === 'cash') && <Accounts kind={tab} />}
+      {tab === 'profit' && <ProfitStatement />}
     </div>
   )
 }

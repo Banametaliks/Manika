@@ -1,6 +1,6 @@
 import type { Account, PaymentMode, Stall, Vendor } from '../lib/types'
 import { MODE_LABEL, addDays, dateRange, fmtDate, inr, inrShort, naturalCompare, parseDate, today } from '../lib/format'
-import { EXPENSE_CATEGORIES, STATUS_LABEL, outstandingByVendor, profitSummary, round2, type BookingInfo } from '../lib/compute'
+import { EXPENSE_CATEGORIES, STATUS_LABEL, outstandingByVendor, round2, type BookingInfo } from '../lib/compute'
 import type { Card, Chip, Ctx, Flow, Prompt, Router, Step } from './engine'
 import {
   accountKindFor, findStalls, isNo, matchAccount, matchVendors, parseAmount, parseMode,
@@ -794,37 +794,26 @@ export const expenseFlow: Flow<ExpenseV> = {
       expense_date: v.payDate!, mode: v.mode!, account_id: v.accountId!, reference: v.reference ?? null, notes: null,
     })
     await ctx.refresh()
-    const p = profitSummary(ctx.idx, ctx.rows.expenses)
+    const spent = ctx.rows.expenses.filter((x) => x.category === e.category).reduce((a, x) => a + x.amount, 0)
     return {
       text: `✅ Expense voucher #${e.voucher_no} saved.`,
       card: {
         title: `Voucher #${e.voucher_no}`, tone: 'success',
-        rows: [['For', e.category], ['Amount', inr(e.amount)], ['Total expenses', inr(p.expenses)], ['Profit so far', inr(p.profit)]],
+        rows: [['For', e.category], ['Amount', inr(e.amount)], ['Paid from', ctx.accounts.find((a) => a.id === e.account_id)?.name ?? '—'], [`${e.category} total`, inr(spent)]],
       },
       chips: [
         { label: 'Another expense', value: 'expense', tone: 'primary' },
-        { label: '📈 Profit', value: 'profit' },
+        { label: 'Expenses', to: '/expenses' },
         { label: 'Menu', value: '__menu' },
       ],
     }
   },
 }
 
-function profitReply(ctx: Ctx): Prompt & { card?: Card } {
-  const p = profitSummary(ctx.idx, ctx.rows.expenses)
-  const rows: [string, string][] = [
-    ['Booking income', inr(p.income)],
-    ['Expenses', `− ${inr(p.expenses)}`],
-    [p.profit >= 0 ? 'Profit' : 'Loss', inr(Math.abs(p.profit))],
-    ['Collected so far', inr(p.collected)],
-    ['Cash profit now', inr(p.cashProfit)],
-    ['Still to collect', inr(p.toCollect)],
-  ]
-  for (const c of p.byCategory.slice(0, 5)) rows.push([`· ${c.category}`, inr(c.amount)])
+function profitReply(): Prompt {
   return {
-    text: p.margin === null ? 'No bookings yet, so no profit to show.' : `${ctx.exhibition?.name}: ${p.profit >= 0 ? 'profit' : 'loss'} of ${inr(Math.abs(p.profit))} (${Math.round(p.margin * 100)}% of income).`,
-    card: { title: 'Profit & loss', rows },
-    chips: [{ label: '🧾 Add expense', value: 'expense', tone: 'primary' }, { label: 'Expenses', to: '/expenses' }, { label: 'Menu', value: '__menu' }],
+    text: 'Profit, income and expenses are in Masters → Profit.',
+    chips: [{ label: 'Open Profit', to: '/masters?tab=profit', tone: 'primary' }, { label: 'Menu', value: '__menu' }],
   }
 }
 
@@ -841,7 +830,6 @@ export function menu(ctx: Ctx): Prompt {
       { label: '💰 Payment', value: 'pay', tone: 'primary' },
       { label: '➕ New vendor', value: 'vendor' },
       { label: '🧾 Expense', value: 'expense' },
-      { label: '📈 Profit', value: 'profit' },
       { label: '📋 Pending dues', value: 'pending' },
       { label: '🟩 Free stalls', value: 'free' },
       { label: '❓ Help', value: 'help' },
@@ -854,7 +842,6 @@ const HELP = `You can tap the buttons or type short commands:
 • pay ramesh 10000 upi
 • pay A-7 5000 cash yesterday
 • expense electricity 5000 cash
-• profit
 • status A-7
 • balance ramesh
 • free B  (free stalls in tile B)
@@ -875,7 +862,7 @@ export const router: Router = (text, ctx) => {
   // "paid electricity 5000" is money going out; "paid ramesh 5000" is money coming in.
   if (/^paid\b/i.test(s) && matchCategory(rest(/^paid\b/i).split(/\s+/).find((w) => !/^(for|to|\d.*)$/i.test(w)) ?? '', [...EXPENSE_CATEGORIES]))
     return { start: as(expenseFlow), prefill: rest(/^paid\b/i) }
-  if (/^(profit|loss|p\s*&\s*l|pnl|profit\s*(and|&)\s*loss|munafa)$/i.test(s)) return { reply: profitReply(ctx) }
+  if (/^(profit|loss|p\s*&\s*l|pnl|profit\s*(and|&)\s*loss|munafa)$/i.test(s)) return { reply: profitReply() }
   if (/^(pay|payment|paid|received|receipt|collect)\b/i.test(s)) return { start: as(payFlow), prefill: rest(/^(payment|pay|paid|received|receipt|collect)\b/i) }
   if (/^((new|add)\s+vendor|vendor)\b/i.test(s)) return { start: as(vendorFlow), prefill: rest(/^((new|add)\s+vendor|vendor)\b/i) }
   if (/^(help|\?|menu|hi|hello|namaste)$/i.test(s)) return { reply: lower === 'help' || s === '?' ? { text: HELP, chips: menu(ctx).chips } : menu(ctx) }

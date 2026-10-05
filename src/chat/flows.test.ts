@@ -176,7 +176,8 @@ describe('expenses and profit', () => {
     expect(last().card?.rows).toContainEqual(['Paid to', 'Msedcl'])
     await chip('Save')
     expect(last().text).toMatch(/voucher #6 saved/)
-    expect(last().card?.rows).toContainEqual(['Profit so far', '₹1,02,800'])
+    expect(last().card?.rows).toContainEqual(['Electricity total', '₹8,500'])
+    expect(JSON.stringify(last())).not.toMatch(/[Pp]rofit/)
   })
 
   it('asks step by step and understands everyday words', async () => {
@@ -201,8 +202,10 @@ describe('expenses and profit', () => {
     expect(last().text).toMatch(/Payment date/)
   })
 
-  it('answers "profit"', async () => {
+  it('keeps profit out of the chat and points to Masters', async () => {
+    expect(JSON.stringify(last())).not.toMatch(/[Pp]rofit/) // menu
     await chat.send('profit')
-    expect(last().card?.rows).toContainEqual(['Profit', '₹1,11,300'])
+    expect(last().card).toBeUndefined()
+    expect(last().chips?.[0]).toMatchObject({ to: '/masters?tab=profit' })
   })
 })

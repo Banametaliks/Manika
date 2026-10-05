@@ -192,6 +192,20 @@ export const EXPENSE_CATEGORIES = [
   'Security', 'Housekeeping', 'Staff wages', 'Food & tea', 'Transport', 'Permissions & fees', 'Other',
 ]
 
+export interface CategoryTotal { category: string; amount: number; count: number }
+
+/** Expense totals per category, largest first. */
+export function expenseBreakdown(expenses: Expense[]): CategoryTotal[] {
+  const cats = new Map<string, CategoryTotal>()
+  for (const e of expenses) {
+    const c = cats.get(e.category) ?? { category: e.category, amount: 0, count: 0 }
+    c.amount += e.amount
+    c.count++
+    cats.set(e.category, c)
+  }
+  return [...cats.values()].map((c) => ({ ...c, amount: round2(c.amount) })).sort((a, b) => b.amount - a.amount)
+}
+
 export interface Profit {
   /** Value of active bookings (after discount). */
   bookingValue: number
@@ -202,7 +216,7 @@ export interface Profit {
   collected: number
   toCollect: number
   expenses: number
-  byCategory: { category: string; amount: number; count: number }[]
+  byCategory: CategoryTotal[]
   /** income − expenses: what the exhibition makes once every vendor pays. */
   profit: number
   /** collected − expenses: cash position right now. */
@@ -218,13 +232,6 @@ export function profitSummary(idx: Index, expenses: Expense[]): Profit {
     if (b.booking.status === 'active') { bookingValue += b.booking.total_amount; toCollect += b.balance }
     else keptFromCancelled += b.paid
   }
-  const cats = new Map<string, { category: string; amount: number; count: number }>()
-  for (const e of expenses) {
-    const c = cats.get(e.category) ?? { category: e.category, amount: 0, count: 0 }
-    c.amount += e.amount
-    c.count++
-    cats.set(e.category, c)
-  }
   const spent = round2(sum(expenses.map((e) => e.amount)))
   const income = round2(bookingValue + keptFromCancelled)
   return {
@@ -234,7 +241,7 @@ export function profitSummary(idx: Index, expenses: Expense[]): Profit {
     collected: round2(collected),
     toCollect: round2(toCollect),
     expenses: spent,
-    byCategory: [...cats.values()].map((c) => ({ ...c, amount: round2(c.amount) })).sort((a, b) => b.amount - a.amount),
+    byCategory: expenseBreakdown(expenses),
     profit: round2(income - spent),
     cashProfit: round2(collected - spent),
     margin: income > 0 ? (income - spent) / income : null,

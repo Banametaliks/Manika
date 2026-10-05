@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../data/store'
-import { EXPENSE_CATEGORIES, profitSummary, type Profit } from '../lib/compute'
+import { EXPENSE_CATEGORIES, expenseBreakdown, type CategoryTotal } from '../lib/compute'
 import { MODE_LABEL, fmtDate, inr } from '../lib/format'
 import type { Expense, PaymentMode } from '../lib/types'
 import { ConfirmButton, Empty, Field, Sheet } from '../components/ui'
 
 export default function Expenses() {
-  const { exhibition, idx, rows, accounts } = useStore()
+  const { exhibition, rows, accounts } = useStore()
   const [q, setQ] = useState('')
   const [edit, setEdit] = useState<Expense | null>(null)
-  const p = useMemo(() => profitSummary(idx, rows.expenses), [idx, rows.expenses])
+  const byCategory = useMemo(() => expenseBreakdown(rows.expenses), [rows.expenses])
+  const total = byCategory.reduce((a, c) => a + c.amount, 0)
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -23,14 +24,17 @@ export default function Expenses() {
 
   return (
     <div className="space-y-4">
-      <ProfitCard p={p} />
+      <section className="card flex items-center justify-between px-4 py-3">
+        <div>
+          <div className="text-xs text-stone-500">Total expenses</div>
+          <div className="text-2xl font-bold tabular-nums">{inr(total)}</div>
+        </div>
+        <div className="text-right text-xs text-stone-500">{rows.expenses.length} voucher{rows.expenses.length === 1 ? '' : 's'}<br />{exhibition.name}</div>
+      </section>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Link to="/chat?q=expense" className="btn-primary">🧾 Add expense</Link>
-        <Link to="/chat?q=profit" className="btn-ghost">Ask in chat</Link>
-      </div>
+      <Link to="/chat?q=expense" className="btn-primary w-full">🧾 Add expense</Link>
 
-      {p.byCategory.length > 0 && <CategoryBars p={p} />}
+      {byCategory.length > 0 && <CategoryBars items={byCategory} total={total} />}
 
       <section className="space-y-2">
         <h2 className="font-semibold">All expenses <span className="font-normal text-stone-500">· {rows.expenses.length}</span></h2>
@@ -59,45 +63,18 @@ export default function Expenses() {
   )
 }
 
-export function ProfitCard({ p, compact = false }: { p: Profit; compact?: boolean }) {
-  const loss = p.profit < 0
-  return (
-    <section className="card overflow-hidden">
-      <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1 px-4 pt-3 text-sm tabular-nums">
-        <span className="text-stone-500">Booking income</span><span className="text-right font-medium">{inr(p.income)}</span>
-        <span className="text-stone-500">Expenses</span><span className="text-right font-medium">− {inr(p.expenses)}</span>
-      </div>
-      <div className={`mx-4 mt-2 flex items-baseline justify-between border-t border-stone-200 py-2 ${loss ? 'text-rose-700' : 'text-emerald-800'}`}>
-        <span className="text-sm font-semibold">{loss ? '▼ Loss' : '▲ Profit'}</span>
-        <span className="text-2xl font-bold tabular-nums">{inr(Math.abs(p.profit))}</span>
-      </div>
-      {p.margin !== null && <div className="-mt-1 px-4 pb-2 text-right text-xs text-stone-500">{Math.round(p.margin * 100)}% of income</div>}
-      {!compact && (
-        <div className="grid grid-cols-3 divide-x divide-stone-100 border-t border-stone-100 bg-stone-50 py-2 text-center text-xs tabular-nums">
-          <div><div className="font-semibold">{inr(p.collected)}</div><div className="text-stone-500">Collected</div></div>
-          <div><div className={`font-semibold ${p.cashProfit < 0 ? 'text-rose-700' : ''}`}>{inr(p.cashProfit)}</div><div className="text-stone-500">Cash profit now</div></div>
-          <div><div className="font-semibold">{inr(p.toCollect)}</div><div className="text-stone-500">To collect</div></div>
-        </div>
-      )}
-      {!compact && p.keptFromCancelled > 0 && (
-        <p className="border-t border-stone-100 px-4 py-2 text-xs text-stone-500">Income includes {inr(p.keptFromCancelled)} received on cancelled bookings. Delete those receipts if you refund them.</p>
-      )}
-    </section>
-  )
-}
-
 /** Where the money went: one bar per category, longest first, value written beside each bar. */
-function CategoryBars({ p }: { p: Profit }) {
-  const max = p.byCategory[0]?.amount || 1
+function CategoryBars({ items, total }: { items: CategoryTotal[]; total: number }) {
+  const max = items[0]?.amount || 1
   return (
     <section className="card px-4 py-3">
       <h2 className="mb-2 text-sm font-semibold">Where the money went</h2>
       <ul className="space-y-2">
-        {p.byCategory.map((c) => (
+        {items.map((c) => (
           <li key={c.category} className="text-sm" title={`${c.category}: ${inr(c.amount)} in ${c.count} expense${c.count > 1 ? 's' : ''}`}>
             <div className="flex justify-between gap-2">
               <span className="truncate">{c.category}</span>
-              <span className="shrink-0 font-medium tabular-nums">{inr(c.amount)} <span className="text-xs font-normal text-stone-500">{Math.round((c.amount / p.expenses) * 100)}%</span></span>
+              <span className="shrink-0 font-medium tabular-nums">{inr(c.amount)} <span className="text-xs font-normal text-stone-500">{Math.round((c.amount / total) * 100)}%</span></span>
             </div>
             <div className="mt-1 h-2 rounded-full bg-stone-100">
               <div className="h-2 rounded-full bg-brand-700" style={{ width: `${Math.max(2, (c.amount / max) * 100)}%` }} />
@@ -109,7 +86,7 @@ function CategoryBars({ p }: { p: Profit }) {
   )
 }
 
-function ExpenseForm({ expense, onClose }: { expense: Expense; onClose(): void }) {
+export function ExpenseForm({ expense, onClose }: { expense: Expense; onClose(): void }) {
   const { repo, accounts, rows, refresh } = useStore()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
