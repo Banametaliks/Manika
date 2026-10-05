@@ -1,5 +1,5 @@
 import type {
-  Account, Booking, BookingStall, Exhibition, Payment, Stall, Vendor,
+  Account, Booking, BookingStall, Exhibition, Expense, Payment, Stall, Vendor,
 } from '../lib/types'
 import { addDays, areaFromSize, today } from '../lib/format'
 import type { MasterTable, Repo } from './repo'
@@ -17,7 +17,8 @@ interface DB {
   bookings: Booking[]
   booking_stalls: BookingStall[]
   payments: Payment[]
-  seq: { booking: number; receipt: number }
+  expenses: Expense[]
+  seq: { booking: number; receipt: number; expense: number }
 }
 
 const KEY = 'manika-demo-db-v1'
@@ -32,7 +33,7 @@ export function localRepo(): Repo {
   function load(): DB {
     try {
       const raw = localStorage.getItem(KEY)
-      if (raw) return JSON.parse(raw)
+      if (raw) return upgrade(JSON.parse(raw))
     } catch { /* fall through to seed */ }
     const seeded = seed()
     try { localStorage.setItem(KEY, JSON.stringify(seeded)) } catch { /* ignore */ }
@@ -60,6 +61,7 @@ export function localRepo(): Repo {
         bookings: db.bookings.filter((b) => b.exhibition_id === id),
         bookingStalls: db.booking_stalls.filter((b) => b.exhibition_id === id),
         payments: db.payments.filter((p) => p.exhibition_id === id),
+        expenses: db.expenses.filter((e) => e.exhibition_id === id),
       })
     },
 
@@ -75,11 +77,15 @@ export function localRepo(): Repo {
         stalls: db.stalls.filter((s) => stallIds.has(s.id)),
         payments: db.payments.filter((p) => p.vendor_id === vendorId),
         exhibitions: db.exhibitions.filter((e) => exIds.has(e.id)),
+        expenses: [],
       })
     },
 
     accountPayments: async (accountId) =>
       clone(db.payments.filter((p) => p.account_id === accountId)).sort((a, b) => a.payment_date.localeCompare(b.payment_date)),
+
+    accountExpenses: async (accountId) =>
+      clone(db.expenses.filter((e) => e.account_id === accountId)).sort((a, b) => a.expense_date.localeCompare(b.expense_date)),
 
     async insert(table, rows) {
       if (table === 'stalls') {
@@ -105,8 +111,8 @@ export function localRepo(): Repo {
       const inUse =
         (table === 'vendors' && db.bookings.some((b) => b.vendor_id === id)) ||
         (table === 'stalls' && db.booking_stalls.some((b) => b.stall_id === id)) ||
-        (table === 'accounts' && db.payments.some((p) => p.account_id === id)) ||
-        (table === 'exhibitions' && db.bookings.some((b) => b.exhibition_id === id))
+        (table === 'accounts' && (db.payments.some((p) => p.account_id === id) || db.expenses.some((e) => e.account_id === id))) ||
+        (table === 'exhibitions' && (db.bookings.some((b) => b.exhibition_id === id) || db.expenses.some((e) => e.exhibition_id === id)))
       if (inUse) throw new Error('This record is in use and cannot be deleted.')
       if (table === 'exhibitions') db.stalls = db.stalls.filter((s) => s.exhibition_id !== id)
       ;(db as unknown as Record<string, { id: string }[]>)[table] = (db[table] as { id: string }[]).filter((r) => r.id !== id)
@@ -154,12 +160,40 @@ export function localRepo(): Repo {
       commit()
     },
 
+    async createExpense(e) {
+      if (!(e.amount > 0)) throw new Error('Amount must be more than zero')
+      const row: Expense = { ...e, id: uid(), voucher_no: ++db.seq.expense, created_at: now() }
+      db.expenses.push(row)
+      commit()
+      return clone(row)
+    },
+
+    async updateExpense(id, patch) {
+      const row = db.expenses.find((x) => x.id === id)
+      if (!row) throw new Error('Expense not found')
+      if (patch.amount !== undefined && !(patch.amount > 0)) throw new Error('Amount must be more than zero')
+      Object.assign(row, patch)
+      commit()
+    },
+
+    async deleteExpense(id) {
+      db.expenses = db.expenses.filter((x) => x.id !== id)
+      commit()
+    },
+
     subscribe(fn) {
       listeners.add(fn)
       return () => listeners.delete(fn)
     },
   }
   return repo
+}
+
+/** Adds what newer versions expect to demo data saved by an older version. */
+function upgrade(db: DB): DB {
+  db.expenses ??= []
+  db.seq.expense ??= db.expenses.length
+  return db
 }
 
 export function resetDemo() {
@@ -177,8 +211,8 @@ function seed(): DB {
       id: exId, name: 'Manika Diwali Expo 2026', venue: 'Exhibition Ground', city: 'Pune',
       start_date: start, end_date: addDays(start, 4), is_active: true, created_at: now(),
     }],
-    vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [],
-    seq: { booking: 0, receipt: 0 },
+    vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [], expenses: [],
+    seq: { booking: 0, receipt: 0, expense: 0 },
   }
 
   const mkStall = (tile: string, n: number, size: string, price: number, type: string | null = null): Stall => ({
@@ -234,5 +268,17 @@ function seed(): DB {
   book(4, ['C-1'], 0, 4, [[20000, 'cash', 4], [10000, 'upi', 1]])
   book(5, ['B-5'], 0, 3, [[22000, 'bank', 3]])
   book(6, ['D-1'], 0, 2, [[5000, 'cash', 2]])
+
+  const spend = (category: string, payee: string | null, amount: number, mode: Expense['mode'], daysAgo: number) =>
+    db.expenses.push({
+      id: uid(), voucher_no: ++db.seq.expense, exhibition_id: exId, category, payee, amount,
+      expense_date: addDays(t, -daysAgo), mode, account_id: mode === 'cash' ? cash.id : hdfc.id,
+      reference: null, notes: null, created_at: now(),
+    })
+  spend('Venue rent', 'Exhibition Ground Trust', 60000, 'bank', 10)
+  spend('Pandal / tent', 'Shree Mandap Decorators', 35000, 'bank', 6)
+  spend('Advertising', 'Pune Times', 12000, 'upi', 5)
+  spend('Printing', 'Om Printers', 4500, 'cash', 4)
+  spend('Food & tea', null, 1200, 'cash', 1)
   return db
 }

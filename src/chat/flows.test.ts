@@ -153,3 +153,56 @@ describe('questions', () => {
     expect(store.rows.bookings.length).toBe(before)
   })
 })
+
+describe('expenses and profit', () => {
+  it('works out profit from bookings and expenses', async () => {
+    const { profitSummary } = await import('../lib/compute')
+    const p = profitSummary(store.idx, store.rows.expenses)
+    // Sample data: 7 bookings worth ₹2,24,000; 5 expenses of ₹1,12,700; ₹1,42,000 collected.
+    expect(p.income).toBe(224000)
+    expect(p.expenses).toBe(112700)
+    expect(p.profit).toBe(111300)
+    expect(p.collected).toBe(142000)
+    expect(p.cashProfit).toBe(29300)
+    expect(p.byCategory[0]).toEqual({ category: 'Venue rent', amount: 60000, count: 1 })
+  })
+
+  it('records an expense from a one-line command', async () => {
+    await chat.send('expense electricity 8500 cash msedcl')
+    // category, amount, mode, payee known; one cash book → straight to date
+    expect(last().text).toMatch(/When was it paid/)
+    await chip('Today')
+    expect(last().card?.rows).toContainEqual(['For', 'Electricity'])
+    expect(last().card?.rows).toContainEqual(['Paid to', 'Msedcl'])
+    await chip('Save')
+    expect(last().text).toMatch(/voucher #6 saved/)
+    expect(last().card?.rows).toContainEqual(['Profit so far', '₹1,02,800'])
+  })
+
+  it('asks step by step and understands everyday words', async () => {
+    await chip('Expense')
+    await chat.send('tea')           // → Food & tea
+    expect(last().text).toMatch(/How much was paid for Food & tea\? \(₹1,200 already spent/)
+    await chat.send('300')
+    await chip('Skip')
+    await chip('UPI')
+    await chip('HDFC')
+    await chip('Yesterday')
+    await chip('Skip')               // reference
+    await chip('Save')
+    expect(store.rows.expenses.find((e) => e.amount === 300)?.category).toBe('Food & tea')
+  })
+
+  it('sends "paid <expense word>" to expenses and "paid <vendor>" to receipts', async () => {
+    await chat.send('paid tent 5000 bank')
+    expect(last().text).toMatch(/Paid to whom/)
+    await chat.send('cancel')
+    await chat.send('paid imran 5000 cash')
+    expect(last().text).toMatch(/Payment date/)
+  })
+
+  it('answers "profit"', async () => {
+    await chat.send('profit')
+    expect(last().card?.rows).toContainEqual(['Profit', '₹1,11,300'])
+  })
+})

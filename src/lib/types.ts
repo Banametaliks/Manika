@@ -93,3 +93,18 @@ export interface Payment {
 }
 
 export type Insert<T> = Omit<T, 'id' | 'created_at'>
+
+export interface Expense {
+  id: ID
+  voucher_no: number
+  exhibition_id: ID
+  category: string
+  payee: string | null
+  amount: number
+  expense_date: string
+  mode: PaymentMode
+  account_id: ID
+  reference: string | null
+  notes: string | null
+  created_at: string
+}

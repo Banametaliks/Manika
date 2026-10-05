@@ -10,6 +10,7 @@ import Bookings from './pages/Bookings'
 import Masters from './pages/Masters'
 import VendorLedger from './pages/VendorLedger'
 import AccountBook from './pages/AccountBook'
+import Expenses from './pages/Expenses'
 import { useOnline } from './components/ui'
 import icon from './assets/icon.svg'
 
@@ -80,6 +81,7 @@ function Shell() {
           <Route path="/tile/:tile" element={<TileView />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/bookings" element={<Bookings />} />
+          <Route path="/expenses" element={<Expenses />} />
           <Route path="/masters" element={<Masters />} />
           <Route path="/vendors/:id" element={<VendorLedger />} />
           <Route path="/accounts/:id" element={<AccountBook />} />
@@ -88,10 +90,11 @@ function Shell() {
       </main>
 
       <nav className={`pb-safe ${isChat ? '' : 'fixed bottom-0 left-0 right-0'} z-20 border-t border-stone-200 bg-white`}>
-        <div className="mx-auto grid max-w-xl grid-cols-4">
+        <div className="mx-auto grid max-w-xl grid-cols-5">
           <Tab to="/" icon="▦" label="Dashboard" end />
           <Tab to="/chat" icon="💬" label="Chat" />
           <Tab to="/bookings" icon="🧾" label="Bookings" />
+          <Tab to="/expenses" icon="💸" label="Expenses" />
           <Tab to="/masters" icon="⚙︎" label="Masters" />
         </div>
       </nav>

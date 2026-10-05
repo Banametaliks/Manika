@@ -1,6 +1,6 @@
 import type { Account, PaymentMode, Stall, Vendor } from '../lib/types'
 import { MODE_LABEL, addDays, dateRange, fmtDate, inr, inrShort, naturalCompare, parseDate, today } from '../lib/format'
-import { STATUS_LABEL, outstandingByVendor, round2, type BookingInfo } from '../lib/compute'
+import { EXPENSE_CATEGORIES, STATUS_LABEL, outstandingByVendor, profitSummary, round2, type BookingInfo } from '../lib/compute'
 import type { Card, Chip, Ctx, Flow, Prompt, Router, Step } from './engine'
 import {
   accountKindFor, findStalls, isNo, matchAccount, matchVendors, parseAmount, parseMode,
@@ -37,11 +37,11 @@ function dateChips(ctx: Ctx, includeShowDays: boolean): Chip[] {
   return chips
 }
 
-function payDateStep<V extends PayFields>(skip?: (v: V) => boolean): Step<V> {
+function payDateStep<V extends PayFields>(skip?: (v: V) => boolean, question = 'Payment date?'): Step<V> {
   return {
-    key: 'payDate', label: 'Payment date',
+    key: 'payDate', label: 'Date',
     skip, done: (v) => !!v.payDate,
-    ask: (_v, ctx) => ({ text: 'Payment date?', chips: dateChips(ctx, true), input: 'date', placeholder: 'e.g. 16/10 or 16 Oct' }),
+    ask: (_v, ctx) => ({ text: question, chips: dateChips(ctx, true), input: 'date', placeholder: 'e.g. 16/10 or 16 Oct' }),
     answer(input, v) {
       const d = parseDate(input)
       if (!d) return 'I could not read that date. Try 16/10, 16 Oct or tap a chip.'
@@ -660,6 +660,174 @@ export const vendorFlow: Flow<VendorV> = {
   },
 }
 
+// ───────────── Expense ─────────────
+
+interface ExpenseV extends PayFields {
+  category?: string
+  payee?: string | null
+}
+
+/** Everyday words → expense category. */
+const CATEGORY_WORDS: [RegExp, string][] = [
+  [/^(rent|venue|ground|hall|bhada|bhade)$/, 'Venue rent'],
+  [/^(pandal|tent|mandap|shamiana|decorat\w*|decor)$/, 'Pandal / tent'],
+  [/^(electric\w*|light\s?bill|power|mseb|msedcl|generator|genset|dg|diesel)$/, 'Electricity'],
+  [/^(sound|light|lights|lighting|dj|speaker|mic)$/, 'Sound & light'],
+  [/^(ad|ads|advert\w*|newspaper|paper|radio|banner|hoarding|facebook|instagram|marketing|promotion)$/, 'Advertising'],
+  [/^(print\w*|flex|pamphlet|pamphlets|leaflet\w*|visiting|cards?)$/, 'Printing'],
+  [/^(security|guard|guards|watchman)$/, 'Security'],
+  [/^(clean\w*|housekeeping|sweeper|safai|garbage)$/, 'Housekeeping'],
+  [/^(salary|salaries|wage|wages|staff|labour|labor|helper|helpers|majdoor)$/, 'Staff wages'],
+  [/^(tea|chai|food|snacks?|lunch|dinner|breakfast|water|nashta)$/, 'Food & tea'],
+  [/^(transport|tempo|truck|auto|taxi|cab|petrol|fuel|travel)$/, 'Transport'],
+  [/^(permission\w*|licen[cs]e|police|fire|noc|municipal|corporation|fees?|tax)$/, 'Permissions & fees'],
+  [/^(other|misc\w*)$/, 'Other'],
+]
+
+export function matchCategory(text: string, known: string[]): string | null {
+  const t = text.trim().toLowerCase()
+  if (!t) return null
+  const exact = known.find((c) => c.toLowerCase() === t)
+  if (exact) return exact
+  for (const w of t.split(/[\s,/&]+/)) {
+    for (const [re, cat] of CATEGORY_WORDS) if (re.test(w)) return cat
+    const byPrefix = w.length >= 3 ? known.filter((c) => c.toLowerCase().split(/[\s/&]+/).some((x) => x.startsWith(w))) : []
+    if (byPrefix.length === 1) return byPrefix[0]
+  }
+  return null
+}
+
+const titleCase = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase())
+
+/** Built-in categories plus any custom ones already used in this exhibition. */
+const knownCategories = (ctx: Ctx) => [...new Set([...EXPENSE_CATEGORIES, ...ctx.rows.expenses.map((e) => e.category)])]
+
+export const expenseFlow: Flow<ExpenseV> = {
+  id: 'expense',
+  title: 'Expense',
+  init(ctx, prefill) {
+    if (!ctx.exhibition) return 'Create an exhibition first (Masters → Exhibitions).'
+    if (!ctx.accounts.length) return 'Add a cash book or bank account first (Masters → Cash / Bank).'
+    const v: ExpenseV = {}
+    if (!prefill) return v
+    // "expense electricity 5000 cash yesterday msedcl"
+    const left: string[] = []
+    for (const w of prefill.split(/\s+/).filter(Boolean)) {
+      const mode = parseMode(w)
+      const amt = parseAmount(w)
+      const d = /[a-z]/i.test(w) || w.includes('/') ? parseDate(w) : null
+      const cat = !v.category ? matchCategory(w, knownCategories(ctx)) : null
+      if (mode && !v.mode) v.mode = mode
+      else if (d && !v.payDate && d <= today()) v.payDate = d
+      else if (amt !== null && amt > 0 && v.amount === undefined) v.amount = amt
+      else if (cat) v.category = cat
+      else if (!/^(rs|for|to|on|by|via|in|of|paid|spent|the|a)$/i.test(w)) left.push(w)
+    }
+    if (v.mode) {
+      const acc = matchAccount(left.join(' '), accountsFor(ctx, v.mode))
+      if (acc) { v.accountId = acc.id; left.splice(0, left.length, ...left.filter((w) => !matchAccount(w, [acc]))) }
+    }
+    // Words left over after a category are usually who was paid.
+    if (v.category && left.length) v.payee = titleCase(left.join(' '))
+    return v
+  },
+  steps: [
+    {
+      key: 'category', label: 'Category',
+      done: (v) => !!v.category,
+      ask: (_v, ctx) => ({ text: 'What was the expense for?', chips: knownCategories(ctx).map((c) => ({ label: c })), placeholder: 'e.g. electricity, tea, tent' }),
+      answer(input, v, ctx) {
+        const cat = matchCategory(input, knownCategories(ctx))
+        if (cat) { v.category = cat; return }
+        if (input.trim().length < 3) return 'Type what it was for, e.g. electricity, or tap a category.'
+        v.category = titleCase(input.trim())
+      },
+      clear: (v) => { v.category = undefined },
+    },
+    {
+      key: 'amount', label: 'Amount',
+      done: (v) => v.amount !== undefined,
+      ask: (v, ctx) => {
+        const spent = ctx.rows.expenses.filter((e) => e.category === v.category).reduce((a, e) => a + e.amount, 0)
+        return {
+          text: `How much was paid for ${v.category}?${spent ? ` (${inr(spent)} already spent on this)` : ''}`,
+          input: 'number', placeholder: 'Amount, e.g. 5000 or 5k',
+        }
+      },
+      answer(input, v) {
+        const a = parseAmount(input)
+        if (a === null || a <= 0) return 'Type an amount like 5000 or 5k.'
+        v.amount = a
+      },
+      clear: (v) => { v.amount = undefined },
+    },
+    {
+      key: 'payee', label: 'Paid to',
+      done: (v) => v.payee !== undefined,
+      ask(v, ctx) {
+        const past = [...new Set(ctx.rows.expenses.filter((e) => e.category === v.category && e.payee).map((e) => e.payee!))].slice(0, 4)
+        return { text: 'Paid to whom? (optional)', chips: [...past.map((p) => ({ label: p })), { label: 'Skip', value: '__skip' }] }
+      },
+      answer(input, v) { v.payee = input === '__skip' || isNo(input) ? null : input.trim() },
+      clear: (v) => { v.payee = undefined },
+    },
+    modeStep<ExpenseV>(),
+    accountStep<ExpenseV>(),
+    payDateStep<ExpenseV>(undefined, 'When was it paid?'),
+    referenceStep<ExpenseV>(),
+  ],
+  summary(v, ctx) {
+    const rows: [string, string][] = [
+      ['For', v.category!],
+      ['Amount', inr(v.amount!)],
+      ['Paid to', v.payee ?? '—'],
+      ['Mode', MODE_LABEL[v.mode!]],
+      ['Paid from', ctx.accounts.find((a) => a.id === v.accountId)?.name ?? '—'],
+      ['Date', fmtDate(v.payDate!)],
+    ]
+    if (v.reference) rows.push(['Reference', v.reference])
+    return { title: `Expense · ${ctx.exhibition?.name ?? ''}`, rows }
+  },
+  async commit(v, ctx) {
+    const e = await ctx.repo.createExpense({
+      exhibition_id: ctx.exhibition!.id, category: v.category!, payee: v.payee ?? null, amount: v.amount!,
+      expense_date: v.payDate!, mode: v.mode!, account_id: v.accountId!, reference: v.reference ?? null, notes: null,
+    })
+    await ctx.refresh()
+    const p = profitSummary(ctx.idx, ctx.rows.expenses)
+    return {
+      text: `✅ Expense voucher #${e.voucher_no} saved.`,
+      card: {
+        title: `Voucher #${e.voucher_no}`, tone: 'success',
+        rows: [['For', e.category], ['Amount', inr(e.amount)], ['Total expenses', inr(p.expenses)], ['Profit so far', inr(p.profit)]],
+      },
+      chips: [
+        { label: 'Another expense', value: 'expense', tone: 'primary' },
+        { label: '📈 Profit', value: 'profit' },
+        { label: 'Menu', value: '__menu' },
+      ],
+    }
+  },
+}
+
+function profitReply(ctx: Ctx): Prompt & { card?: Card } {
+  const p = profitSummary(ctx.idx, ctx.rows.expenses)
+  const rows: [string, string][] = [
+    ['Booking income', inr(p.income)],
+    ['Expenses', `− ${inr(p.expenses)}`],
+    [p.profit >= 0 ? 'Profit' : 'Loss', inr(Math.abs(p.profit))],
+    ['Collected so far', inr(p.collected)],
+    ['Cash profit now', inr(p.cashProfit)],
+    ['Still to collect', inr(p.toCollect)],
+  ]
+  for (const c of p.byCategory.slice(0, 5)) rows.push([`· ${c.category}`, inr(c.amount)])
+  return {
+    text: p.margin === null ? 'No bookings yet, so no profit to show.' : `${ctx.exhibition?.name}: ${p.profit >= 0 ? 'profit' : 'loss'} of ${inr(Math.abs(p.profit))} (${Math.round(p.margin * 100)}% of income).`,
+    card: { title: 'Profit & loss', rows },
+    chips: [{ label: '🧾 Add expense', value: 'expense', tone: 'primary' }, { label: 'Expenses', to: '/expenses' }, { label: 'Menu', value: '__menu' }],
+  }
+}
+
 // ───────────── Router: understands free text when no flow is running ─────────────
 
 export function menu(ctx: Ctx): Prompt {
@@ -672,6 +840,8 @@ export function menu(ctx: Ctx): Prompt {
       { label: '🏷️ Book stall', value: 'book', tone: 'primary' },
       { label: '💰 Payment', value: 'pay', tone: 'primary' },
       { label: '➕ New vendor', value: 'vendor' },
+      { label: '🧾 Expense', value: 'expense' },
+      { label: '📈 Profit', value: 'profit' },
       { label: '📋 Pending dues', value: 'pending' },
       { label: '🟩 Free stalls', value: 'free' },
       { label: '❓ Help', value: 'help' },
@@ -683,6 +853,8 @@ const HELP = `You can tap the buttons or type short commands:
 • book ramesh A-7 A-8
 • pay ramesh 10000 upi
 • pay A-7 5000 cash yesterday
+• expense electricity 5000 cash
+• profit
 • status A-7
 • balance ramesh
 • free B  (free stalls in tile B)
@@ -699,6 +871,11 @@ export const router: Router = (text, ctx) => {
   const as = (f: Flow<any>) => f as Flow<unknown>
 
   if (/^(book|booking|new booking|book stall)\b/i.test(s)) return { start: as(bookFlow), prefill: rest(/^(new booking|book stall|booking|book)\b/i) }
+  if (/^(expenses?|exp|spent|spend|kharcha|kharch)\b/i.test(s)) return { start: as(expenseFlow), prefill: rest(/^(expenses?|exp|spent|spend|kharcha|kharch)\b/i) }
+  // "paid electricity 5000" is money going out; "paid ramesh 5000" is money coming in.
+  if (/^paid\b/i.test(s) && matchCategory(rest(/^paid\b/i).split(/\s+/).find((w) => !/^(for|to|\d.*)$/i.test(w)) ?? '', [...EXPENSE_CATEGORIES]))
+    return { start: as(expenseFlow), prefill: rest(/^paid\b/i) }
+  if (/^(profit|loss|p\s*&\s*l|pnl|profit\s*(and|&)\s*loss|munafa)$/i.test(s)) return { reply: profitReply(ctx) }
   if (/^(pay|payment|paid|received|receipt|collect)\b/i.test(s)) return { start: as(payFlow), prefill: rest(/^(payment|pay|paid|received|receipt|collect)\b/i) }
   if (/^((new|add)\s+vendor|vendor)\b/i.test(s)) return { start: as(vendorFlow), prefill: rest(/^((new|add)\s+vendor|vendor)\b/i) }
   if (/^(help|\?|menu|hi|hello|namaste)$/i.test(s)) return { reply: lower === 'help' || s === '?' ? { text: HELP, chips: menu(ctx).chips } : menu(ctx) }

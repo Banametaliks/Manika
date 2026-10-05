@@ -12,6 +12,7 @@ Mobile-first PWA for managing exhibition stalls, vendors and payments. Bookings 
   - `pay A-5 5000 cash yesterday`
   - `status A-7`, `balance ramesh`, `free B`, `pending`
 - **Voice input**: tap 🎤 in the chat and speak (Indian English). Phrases like “pay Ramesh ten thousand rupees cash”, “A dash 7” or “16th of October” are understood, and saying a button's words (“full”, “cash”, “today”, “save”) taps it. Uses the phone browser's built-in speech recognition (Chrome on Android, Safari on iPhone); needs the site on HTTPS and microphone permission.
+- **Expenses and profit**: record exhibition expenses in the chat (`expense electricity 5000 cash`, `spent 300 tea`, or by voice). The Expenses tab shows booking income − expenses = profit, cash profit so far, what's still to collect, and a breakdown by category. Expenses can be edited or deleted, and they show as money out in the cash and bank books.
 - **Bookings and payments**: search, filter by due or paid, cancel a booking, delete a receipt, share on WhatsApp.
 - **Masters**:
   - Exhibitions (several, sharing one vendor list)
@@ -40,7 +41,7 @@ With no Supabase keys, the app runs in **demo mode**: sample data is stored in t
 ## Connect Supabase (go live)
 
 1. Create a project at https://supabase.com (the free tier is fine).
-2. Open **SQL Editor**, paste `supabase/migrations/001_init.sql`, then click **Run**.
+2. Open **SQL Editor**, paste `supabase/migrations/001_init.sql`, then click **Run**. Do the same for `002_expenses.sql`.
 3. Go to **Authentication → Users → Add user** and create a login for each staff member.
 4. Copy `.env.example` to `.env`, then fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (found under Project Settings → API).
 5. `npm run build` and deploy `dist/` to Vercel or Netlify. Add the same two env vars there.
@@ -53,13 +54,13 @@ src/
   chat/       engine.ts (conversation runner), flows.ts (book / pay / vendor / questions), parse.ts
   data/       repo.ts (interface), supabase.ts, local.ts (demo), store.tsx (React state + live refresh)
   lib/        compute.ts (stall status, balances, tile summaries), format.ts, share.ts (WhatsApp)
-  pages/      Dashboard, TileView, Chat, Bookings, Masters, VendorLedger, AccountBook, Login
-supabase/migrations/001_init.sql
+  pages/      Dashboard, TileView, Chat, Bookings, Expenses, Masters, VendorLedger, AccountBook, Login
+supabase/migrations/001_init.sql, 002_expenses.sql
 ```
 
 ## Next (Phase 2 ideas)
 
-User roles, PDF receipts and GST invoices, expenses with P&L per exhibition, a floor-plan map, payment reminders, an offline queue, Excel export.
+User roles, PDF receipts and GST invoices, profit comparison across exhibitions, expense budgets, a floor-plan map, payment reminders, an offline queue, Excel export.
 
 ## Preview build
 

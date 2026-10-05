@@ -1,4 +1,4 @@
-import type { Booking, BookingStall, Payment, Stall, Vendor, ID } from './types'
+import type { Booking, BookingStall, Expense, Payment, Stall, Vendor, ID } from './types'
 import { naturalCompare } from './format'
 
 export type StallStatus = 'free' | 'blocked' | 'booked' | 'partial' | 'paid'
@@ -183,4 +183,60 @@ export function groupBy<T, K>(xs: T[], key: (x: T) => K): Map<K, T[]> {
     else m.set(k, [x])
   }
   return m
+}
+
+// ───────────── Expenses & profit ─────────────
+
+export const EXPENSE_CATEGORIES = [
+  'Venue rent', 'Pandal / tent', 'Electricity', 'Sound & light', 'Advertising', 'Printing',
+  'Security', 'Housekeeping', 'Staff wages', 'Food & tea', 'Transport', 'Permissions & fees', 'Other',
+]
+
+export interface Profit {
+  /** Value of active bookings (after discount). */
+  bookingValue: number
+  /** Money received on bookings that were later cancelled (kept unless refunded). */
+  keptFromCancelled: number
+  /** bookingValue + keptFromCancelled */
+  income: number
+  collected: number
+  toCollect: number
+  expenses: number
+  byCategory: { category: string; amount: number; count: number }[]
+  /** income − expenses: what the exhibition makes once every vendor pays. */
+  profit: number
+  /** collected − expenses: cash position right now. */
+  cashProfit: number
+  /** profit as a share of income, 0–1; null when there is no income yet. */
+  margin: number | null
+}
+
+export function profitSummary(idx: Index, expenses: Expense[]): Profit {
+  let bookingValue = 0, keptFromCancelled = 0, collected = 0, toCollect = 0
+  for (const b of idx.bookingInfo.values()) {
+    collected += b.paid
+    if (b.booking.status === 'active') { bookingValue += b.booking.total_amount; toCollect += b.balance }
+    else keptFromCancelled += b.paid
+  }
+  const cats = new Map<string, { category: string; amount: number; count: number }>()
+  for (const e of expenses) {
+    const c = cats.get(e.category) ?? { category: e.category, amount: 0, count: 0 }
+    c.amount += e.amount
+    c.count++
+    cats.set(e.category, c)
+  }
+  const spent = round2(sum(expenses.map((e) => e.amount)))
+  const income = round2(bookingValue + keptFromCancelled)
+  return {
+    bookingValue: round2(bookingValue),
+    keptFromCancelled: round2(keptFromCancelled),
+    income,
+    collected: round2(collected),
+    toCollect: round2(toCollect),
+    expenses: spent,
+    byCategory: [...cats.values()].map((c) => ({ ...c, amount: round2(c.amount) })).sort((a, b) => b.amount - a.amount),
+    profit: round2(income - spent),
+    cashProfit: round2(collected - spent),
+    margin: income > 0 ? (income - spent) / income : null,
+  }
 }

@@ -36,13 +36,14 @@ export function supabaseRepo(sb: SupabaseClient): Repo {
     listAccounts: () => all(sb.from('accounts').select('*').order('name')),
 
     async loadExhibition(id) {
-      const [stalls, bookings, bookingStalls, payments] = await Promise.all([
+      const [stalls, bookings, bookingStalls, payments, expenses] = await Promise.all([
         all(sb.from('stalls').select('*').eq('exhibition_id', id)),
         all(sb.from('bookings').select('*').eq('exhibition_id', id)),
         all(sb.from('booking_stalls').select('*').eq('exhibition_id', id)),
         all(sb.from('payments').select('*').eq('exhibition_id', id)),
+        all(sb.from('expenses').select('*').eq('exhibition_id', id)),
       ])
-      return { stalls, bookings, bookingStalls, payments } as never
+      return { stalls, bookings, bookingStalls, payments, expenses } as never
     },
 
     async vendorHistory(vendorId) {
@@ -56,11 +57,14 @@ export function supabaseRepo(sb: SupabaseClient): Repo {
       ])
       const stallIds = bookingStalls.map((x) => (x as { stall_id: string }).stall_id)
       const stalls = stallIds.length ? await all(sb.from('stalls').select('*').in('id', stallIds)) : []
-      return { bookings, bookingStalls, payments, exhibitions, stalls } as never
+      return { bookings, bookingStalls, payments, exhibitions, stalls, expenses: [] } as never
     },
 
     accountPayments: (accountId) =>
       all(sb.from('payments').select('*').eq('account_id', accountId).order('payment_date')) as never,
+
+    accountExpenses: (accountId) =>
+      all(sb.from('expenses').select('*').eq('account_id', accountId).order('expense_date')) as never,
 
     async insert(table, rows) {
       return nums(check(await sb.from(table).insert(rows as never).select()) ?? []) as never
@@ -93,6 +97,15 @@ export function supabaseRepo(sb: SupabaseClient): Repo {
     },
     async deletePayment(id) {
       check(await sb.from('payments').delete().eq('id', id))
+    },
+    async createExpense(e) {
+      return nums([check(await sb.from('expenses').insert(e).select().single())])[0] as never
+    },
+    async updateExpense(id, patch) {
+      check(await sb.from('expenses').update(patch).eq('id', id))
+    },
+    async deleteExpense(id) {
+      check(await sb.from('expenses').delete().eq('id', id))
     },
 
     subscribe(onChange) {

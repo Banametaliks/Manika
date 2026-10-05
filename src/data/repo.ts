@@ -1,5 +1,5 @@
 import type {
-  Account, Booking, BookingStall, Exhibition, ID, Insert, Payment, Stall, Vendor,
+  Account, Booking, BookingStall, Exhibition, Expense, ID, Insert, Payment, Stall, Vendor,
 } from '../lib/types'
 
 export interface MasterTables {
@@ -20,12 +20,14 @@ export interface NewBooking {
 }
 
 export type NewPayment = Omit<Insert<Payment>, 'receipt_no'>
+export type NewExpense = Omit<Insert<Expense>, 'voucher_no'>
 
 export interface ExhibitionRows {
   stalls: Stall[]
   bookings: Booking[]
   bookingStalls: BookingStall[]
   payments: Payment[]
+  expenses: Expense[]
 }
 
 export interface Repo {
@@ -40,6 +42,8 @@ export interface Repo {
 
   /** Every payment received into one bank / cash account, all exhibitions. */
   accountPayments(accountId: ID): Promise<Payment[]>
+  /** Every expense paid from one bank / cash account, all exhibitions. */
+  accountExpenses(accountId: ID): Promise<Expense[]>
 
   insert<T extends MasterTable>(table: T, rows: Insert<MasterTables[T]>[]): Promise<MasterTables[T][]>
   update<T extends MasterTable>(table: T, id: ID, patch: Partial<MasterTables[T]>): Promise<void>
@@ -49,6 +53,10 @@ export interface Repo {
   cancelBooking(bookingId: ID): Promise<void>
   createPayment(p: NewPayment): Promise<Payment>
   deletePayment(paymentId: ID): Promise<void>
+
+  createExpense(e: NewExpense): Promise<Expense>
+  updateExpense(id: ID, patch: Partial<NewExpense>): Promise<void>
+  deleteExpense(id: ID): Promise<void>
 
   /** Calls back whenever data changes (on this device or another). Returns unsubscribe. */
   subscribe(onChange: () => void): () => void

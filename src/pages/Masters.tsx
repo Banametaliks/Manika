@@ -378,6 +378,7 @@ function Accounts({ kind }: { kind: AccountKind }) {
         <ul className="space-y-2">
           {list.map((a) => {
             const received = rows.payments.filter((p) => p.account_id === a.id).reduce((s, p) => s + p.amount, 0)
+            const spent = rows.expenses.filter((e) => e.account_id === a.id).reduce((s, e) => s + e.amount, 0)
             return (
               <li key={a.id} className="card flex items-center gap-3 px-4 py-3">
                 <Link to={`/accounts/${a.id}`} className="min-w-0 flex-1">
@@ -385,7 +386,7 @@ function Accounts({ kind }: { kind: AccountKind }) {
                   <div className="truncate text-xs text-stone-500">
                     {kind === 'bank' ? [a.bank_name, a.account_no && `A/c ••${a.account_no.slice(-4)}`, a.upi_id].filter(Boolean).join(' · ') : 'Cash book'}
                   </div>
-                  <div className="text-xs text-stone-500">This exhibition: {inr(received)} received</div>
+                  <div className="text-xs text-stone-500">This exhibition: {inr(received)} received{spent ? ` · ${inr(spent)} spent` : ''}</div>
                 </Link>
                 <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => setEdit(a)}>Edit</button>
               </li>

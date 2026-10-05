@@ -13,7 +13,7 @@ export const supabase: SupabaseClient | null = url && key ? createSupabaseClient
 export const repo: Repo = supabase ? supabaseRepo(supabase) : localRepo()
 
 const EX_KEY = 'manika-exhibition-id'
-const EMPTY: ExhibitionRows = { stalls: [], bookings: [], bookingStalls: [], payments: [] }
+const EMPTY: ExhibitionRows = { stalls: [], bookings: [], bookingStalls: [], payments: [], expenses: [] }
 
 export interface Store {
   repo: Repo
