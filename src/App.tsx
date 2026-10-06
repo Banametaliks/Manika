@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { DataProvider, missingConfig, supabase, useStore } from './data/store'
+import { DataProvider, configStatus, missingConfig, supabase, useStore } from './data/store'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import TileView from './pages/TileView'
@@ -123,10 +123,20 @@ function NotConnected() {
     <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-brand-900 px-6 text-center text-white">
       <img src={icon} alt="" className="h-16 w-16 rounded-2xl" />
       <h1 className="text-xl font-semibold">App is not connected to the database</h1>
+      <ul className="space-y-1 text-sm">
+        <li>{configStatus.url ? '✅' : '❌'} Supabase URL</li>
+        <li>{configStatus.key ? '✅' : '❌'} Supabase anon / publishable key</li>
+      </ul>
+      {configStatus.secretKeyRejected && (
+        <p className="max-w-sm rounded-xl bg-rose-600/90 px-3 py-2 text-sm">
+          The key given is the secret <b>service role</b> key. It must never be used in the app. Use the <b>anon</b> (or <b>publishable</b>) key instead.
+        </p>
+      )}
       <p className="max-w-sm text-sm text-brand-200">
-        This build has no Supabase keys. In Vercel, open Project → Settings → Environment Variables, add
-        <b className="text-white"> VITE_SUPABASE_URL</b> and <b className="text-white">VITE_SUPABASE_ANON_KEY</b>,
-        then redeploy.
+        In Vercel, open Project → Settings → Environment Variables and add
+        <b className="text-white"> VITE_SUPABASE_URL</b> (Supabase Project URL) and
+        <b className="text-white"> VITE_SUPABASE_ANON_KEY</b> (anon or publishable key) for Production.
+        Then go to Deployments and Redeploy. Keys added after a build only take effect on the next build.
       </p>
     </div>
   )

@@ -6,8 +6,11 @@ import type { ExhibitionRows, Repo } from './repo'
 import { createSupabaseClient, supabaseRepo } from './supabase'
 import { localRepo } from './local'
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const url = __SUPABASE_URL__
+const key = __SUPABASE_KEY__
+
+/** What the build found, for the "not connected" screen. Never contains the values themselves. */
+export const configStatus = { url: !!url, key: !!key, secretKeyRejected: __SUPABASE_SECRET_REJECTED__ }
 
 export const supabase: SupabaseClient | null = url && key ? createSupabaseClient(url, key) : null
 export const repo: Repo = supabase ? supabaseRepo(supabase) : localRepo()
