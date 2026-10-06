@@ -2,9 +2,8 @@
 -- Manika Exhibition — database setup
 -- Supabase → SQL Editor → New query → paste this whole file → Run.
 -- Safe to run more than once: it only creates what is missing.
+-- (Uses plain quotes for function bodies so copying it cannot break them.)
 -- ═══════════════════════════════════════════════════════════════════
-
-create extension if not exists pgcrypto;
 
 -- ───────────── Masters ─────────────
 
@@ -143,14 +142,14 @@ create or replace function create_booking(
   p_stall_ids     uuid[]
 ) returns bookings
 language plpgsql
-as $$
+as '
 declare
   v_gross   numeric(12,2);
   v_count   int;
   v_booking bookings;
 begin
   if coalesce(array_length(p_stall_ids, 1), 0) = 0 then
-    raise exception 'Select at least one stall';
+    raise exception ''Select at least one stall'';
   end if;
 
   select count(*), coalesce(sum(price), 0) into v_count, v_gross
@@ -158,10 +157,10 @@ begin
   where id = any(p_stall_ids) and exhibition_id = p_exhibition_id and not blocked;
 
   if v_count <> array_length(p_stall_ids, 1) then
-    raise exception 'One or more stalls are blocked or not part of this exhibition';
+    raise exception ''One or more stalls are blocked or not part of this exhibition'';
   end if;
   if coalesce(p_discount, 0) < 0 or coalesce(p_discount, 0) > v_gross then
-    raise exception 'Discount must be between 0 and %', v_gross;
+    raise exception ''Discount must be between 0 and %'', v_gross;
   end if;
 
   insert into bookings (exhibition_id, vendor_id, booking_date, gross_amount, discount, total_amount, notes)
@@ -174,36 +173,72 @@ begin
     select v_booking.id, p_exhibition_id, s.id, s.price
     from stalls s where s.id = any(p_stall_ids);
   exception when unique_violation then
-    raise exception 'One or more stalls were just booked by someone else';
+    raise exception ''One or more stalls were just booked by someone else'';
   end;
 
   return v_booking;
 end;
-$$;
+';
 
 -- Cancels a booking and frees its stalls. Payments stay on record.
 create or replace function cancel_booking(p_booking_id uuid) returns void
 language sql
-as $$
-  update bookings set status = 'cancelled' where id = p_booking_id;
+as '
+  update bookings set status = ''cancelled'' where id = p_booking_id;
   update booking_stalls set active = false where booking_id = p_booking_id;
-$$;
+';
 
 -- ───────────── Access ─────────────
 -- Every signed-in staff member can see and edit everything.
 -- People who are not signed in can see nothing.
 
-do $$
-declare t text;
-begin
-  foreach t in array array['exhibitions','vendors','stalls','accounts','bookings','booking_stalls','payments','expenses'] loop
-    execute format('alter table %I enable row level security', t);
-    execute format('drop policy if exists "signed-in full access" on %I', t);
-    execute format('create policy "signed-in full access" on %I for all to authenticated using (true) with check (true)', t);
-    execute format('grant select, insert, update, delete on %I to authenticated', t);
-    execute format('revoke all on %I from anon', t);
-  end loop;
-end $$;
+alter table exhibitions enable row level security;
+drop policy if exists "signed-in full access" on exhibitions;
+create policy "signed-in full access" on exhibitions for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on exhibitions to authenticated;
+revoke all on exhibitions from anon;
+
+alter table vendors enable row level security;
+drop policy if exists "signed-in full access" on vendors;
+create policy "signed-in full access" on vendors for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on vendors to authenticated;
+revoke all on vendors from anon;
+
+alter table stalls enable row level security;
+drop policy if exists "signed-in full access" on stalls;
+create policy "signed-in full access" on stalls for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on stalls to authenticated;
+revoke all on stalls from anon;
+
+alter table accounts enable row level security;
+drop policy if exists "signed-in full access" on accounts;
+create policy "signed-in full access" on accounts for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on accounts to authenticated;
+revoke all on accounts from anon;
+
+alter table bookings enable row level security;
+drop policy if exists "signed-in full access" on bookings;
+create policy "signed-in full access" on bookings for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on bookings to authenticated;
+revoke all on bookings from anon;
+
+alter table booking_stalls enable row level security;
+drop policy if exists "signed-in full access" on booking_stalls;
+create policy "signed-in full access" on booking_stalls for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on booking_stalls to authenticated;
+revoke all on booking_stalls from anon;
+
+alter table payments enable row level security;
+drop policy if exists "signed-in full access" on payments;
+create policy "signed-in full access" on payments for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on payments to authenticated;
+revoke all on payments from anon;
+
+alter table expenses enable row level security;
+drop policy if exists "signed-in full access" on expenses;
+create policy "signed-in full access" on expenses for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on expenses to authenticated;
+revoke all on expenses from anon;
 
 revoke execute on function create_booking(uuid, uuid, date, numeric, text, uuid[]) from public, anon;
 revoke execute on function cancel_booking(uuid) from public, anon;
@@ -212,15 +247,34 @@ grant execute on function cancel_booking(uuid) to authenticated;
 
 -- ───────────── Live updates on every phone ─────────────
 
-do $$
-declare t text;
+do '
 begin
-  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+  if not exists (select 1 from pg_publication where pubname = ''supabase_realtime'') then
     create publication supabase_realtime;
   end if;
-  foreach t in array array['exhibitions','vendors','stalls','accounts','bookings','booking_stalls','payments','expenses'] loop
-    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
-      execute format('alter publication supabase_realtime add table public.%I', t);
-    end if;
-  end loop;
-end $$;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''exhibitions'') then
+    alter publication supabase_realtime add table public.exhibitions;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''vendors'') then
+    alter publication supabase_realtime add table public.vendors;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''stalls'') then
+    alter publication supabase_realtime add table public.stalls;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''accounts'') then
+    alter publication supabase_realtime add table public.accounts;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''bookings'') then
+    alter publication supabase_realtime add table public.bookings;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''booking_stalls'') then
+    alter publication supabase_realtime add table public.booking_stalls;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''payments'') then
+    alter publication supabase_realtime add table public.payments;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = ''supabase_realtime'' and schemaname = ''public'' and tablename = ''expenses'') then
+    alter publication supabase_realtime add table public.expenses;
+  end if;
+end
+';
