@@ -38,16 +38,18 @@ npm test           # unit + chat-flow tests
 npm run build
 ```
 
-With no Supabase keys, the app runs in **demo mode**: sample data is stored in the browser, so you can try it straight away.
+With no Supabase keys, `npm run dev` runs in **demo mode**: data is kept in the browser only. A production build without keys refuses to run in demo mode.
 
 ## Connect Supabase (go live)
 
 1. Create a project at https://supabase.com (the free tier is fine).
-2. Open **SQL Editor**, paste `supabase/migrations/001_init.sql`, then click **Run**. Do the same for `002_expenses.sql`.
-3. Go to **Authentication → Users → Add user** and create a login for each staff member.
-4. Copy `.env.example` to `.env`, then fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (found under Project Settings → API).
-5. `npm run build` and deploy `dist/` to Vercel or Netlify. Add the same two env vars there.
+2. **SQL Editor → New query**, paste the whole of `supabase/setup.sql`, then click **Run**. It is safe to run again later; it only adds what is missing.
+3. **Authentication → Users → Add user → Create new user** for each staff member (tick *Auto Confirm User*). They sign in with that email and password.
+4. **Project Settings → API**: copy the **Project URL** and the **anon / publishable key**.
+5. In Vercel, open **Project → Settings → Environment Variables** and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (for Production and Preview). Then **Deployments → ⋯ → Redeploy**: the keys are built into the app, so a redeploy is needed after adding or changing them. Without them the live site shows an "App is not connected" screen instead of running in demo mode.
 6. In the app: Masters → Exhibitions → New, then Stalls → Bulk add, then add your Bank and Cash accounts.
+
+To wipe test entries before going live, run `supabase/reset-data.sql` (deletes all data, keeps the tables; numbering restarts at 1).
 
 ## Layout
 
@@ -57,7 +59,7 @@ src/
   data/       repo.ts (interface), supabase.ts, local.ts (demo), store.tsx (React state + live refresh)
   lib/        compute.ts (stall status, balances, tile summaries), format.ts, share.ts (WhatsApp)
   pages/      Dashboard, TileView, Chat, Bookings, Expenses, Masters, VendorLedger, AccountBook, Login
-supabase/migrations/001_init.sql, 002_expenses.sql
+supabase/setup.sql (database), reset-data.sql (wipe all data)
 ```
 
 ## Next (Phase 2 ideas)
@@ -66,4 +68,4 @@ User roles, PDF receipts and GST invoices, profit comparison across exhibitions,
 
 ## Preview build
 
-`npm run build:preview` makes `dist-preview/manika-preview.html`: the whole app in one self-contained page (demo mode, no service worker). This is the file published as the shareable preview link.
+`npm run build:preview` makes `dist-preview/manika-preview.html`: the whole app in one self-contained page (demo mode, starts empty, no service worker). This is the file published as the shareable preview link.

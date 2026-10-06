@@ -12,6 +12,13 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 export const supabase: SupabaseClient | null = url && key ? createSupabaseClient(url, key) : null
 export const repo: Repo = supabase ? supabaseRepo(supabase) : localRepo()
 
+/**
+ * A production build with no Supabase keys must not fall back to demo mode:
+ * staff would be saving real bookings into one phone's browser. (The preview
+ * build is the one exception: it is meant to run without a server.)
+ */
+export const missingConfig = !supabase && import.meta.env.PROD && import.meta.env.VITE_PREVIEW !== '1'
+
 const EX_KEY = 'manika-exhibition-id'
 const EMPTY: ExhibitionRows = { stalls: [], bookings: [], bookingStalls: [], payments: [], expenses: [] }
 

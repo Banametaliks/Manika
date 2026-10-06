@@ -1,11 +1,14 @@
--- Manika Exhibition — initial schema
--- Run in Supabase: Dashboard → SQL Editor → paste → Run.
+-- ═══════════════════════════════════════════════════════════════════
+-- Manika Exhibition — database setup
+-- Supabase → SQL Editor → New query → paste this whole file → Run.
+-- Safe to run more than once: it only creates what is missing.
+-- ═══════════════════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto;
 
 -- ───────────── Masters ─────────────
 
-create table exhibitions (
+create table if not exists exhibitions (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
   venue       text,
@@ -18,7 +21,7 @@ create table exhibitions (
 );
 
 -- Vendors are shared across all exhibitions.
-create table vendors (
+create table if not exists vendors (
   id            uuid primary key default gen_random_uuid(),
   name          text not null,
   business_name text,
@@ -31,24 +34,24 @@ create table vendors (
 );
 
 -- Stalls belong to one exhibition (each venue has its own layout).
-create table stalls (
+create table if not exists stalls (
   id            uuid primary key default gen_random_uuid(),
   exhibition_id uuid not null references exhibitions(id) on delete cascade,
   number        text not null,
   tile          text not null,
-  size          text,                 -- e.g. "3x3"
-  area          numeric(10,2),        -- sq. m / sq. ft, whatever the venue uses
-  stall_type    text,                 -- corner, inline, premium…
-  price         numeric(12,2) not null default 0,   -- fixed price
+  size          text,
+  area          numeric(10,2),
+  stall_type    text,
+  price         numeric(12,2) not null default 0,
   blocked       boolean not null default false,
   notes         text,
   created_at    timestamptz not null default now(),
   unique (exhibition_id, number)
 );
-create index stalls_exhibition_idx on stalls(exhibition_id);
+create index if not exists stalls_exhibition_idx on stalls(exhibition_id);
 
--- Bank and cash accounts (one table, kind tells them apart).
-create table accounts (
+-- Bank and cash accounts.
+create table if not exists accounts (
   id              uuid primary key default gen_random_uuid(),
   kind            text not null check (kind in ('bank','cash')),
   name            text not null,
@@ -63,24 +66,24 @@ create table accounts (
 
 -- ───────────── Transactions ─────────────
 
-create table bookings (
+create table if not exists bookings (
   id            uuid primary key default gen_random_uuid(),
   booking_no    bigint generated always as identity,
   exhibition_id uuid not null references exhibitions(id) on delete restrict,
   vendor_id     uuid not null references vendors(id) on delete restrict,
   booking_date  date not null default current_date,
-  gross_amount  numeric(12,2) not null,           -- sum of stall prices
+  gross_amount  numeric(12,2) not null,
   discount      numeric(12,2) not null default 0,
-  total_amount  numeric(12,2) not null,           -- gross - discount
+  total_amount  numeric(12,2) not null,
   status        text not null default 'active' check (status in ('active','cancelled')),
   notes         text,
   created_at    timestamptz not null default now(),
   check (discount >= 0 and total_amount = gross_amount - discount)
 );
-create index bookings_exhibition_idx on bookings(exhibition_id);
-create index bookings_vendor_idx on bookings(vendor_id);
+create index if not exists bookings_exhibition_idx on bookings(exhibition_id);
+create index if not exists bookings_vendor_idx on bookings(vendor_id);
 
-create table booking_stalls (
+create table if not exists booking_stalls (
   id            uuid primary key default gen_random_uuid(),
   booking_id    uuid not null references bookings(id) on delete cascade,
   exhibition_id uuid not null references exhibitions(id) on delete cascade,
@@ -88,11 +91,11 @@ create table booking_stalls (
   price         numeric(12,2) not null,
   active        boolean not null default true
 );
--- A stall can be in only one active booking: this is what stops double booking.
-create unique index booking_stalls_one_active on booking_stalls(stall_id) where active;
-create index booking_stalls_exhibition_idx on booking_stalls(exhibition_id);
+-- A stall can be in only one active booking: this stops double booking.
+create unique index if not exists booking_stalls_one_active on booking_stalls(stall_id) where active;
+create index if not exists booking_stalls_exhibition_idx on booking_stalls(exhibition_id);
 
-create table payments (
+create table if not exists payments (
   id            uuid primary key default gen_random_uuid(),
   receipt_no    bigint generated always as identity,
   exhibition_id uuid not null references exhibitions(id) on delete restrict,
@@ -106,8 +109,26 @@ create table payments (
   notes         text,
   created_at    timestamptz not null default now()
 );
-create index payments_exhibition_idx on payments(exhibition_id);
-create index payments_vendor_idx on payments(vendor_id);
+create index if not exists payments_exhibition_idx on payments(exhibition_id);
+create index if not exists payments_vendor_idx on payments(vendor_id);
+create index if not exists payments_account_idx on payments(account_id);
+
+create table if not exists expenses (
+  id            uuid primary key default gen_random_uuid(),
+  voucher_no    bigint generated always as identity,
+  exhibition_id uuid not null references exhibitions(id) on delete restrict,
+  category      text not null,
+  payee         text,
+  amount        numeric(12,2) not null check (amount > 0),
+  expense_date  date not null default current_date,
+  mode          text not null check (mode in ('cash','upi','bank','cheque')),
+  account_id    uuid not null references accounts(id) on delete restrict,
+  reference     text,
+  notes         text,
+  created_at    timestamptz not null default now()
+);
+create index if not exists expenses_exhibition_idx on expenses(exhibition_id);
+create index if not exists expenses_account_idx on expenses(account_id);
 
 -- ───────────── Functions ─────────────
 
@@ -168,30 +189,38 @@ as $$
   update booking_stalls set active = false where booking_id = p_booking_id;
 $$;
 
--- ───────────── Security ─────────────
--- For now every signed-in user can see and edit everything.
--- Roles (admin / booking staff / accountant) will tighten these later.
+-- ───────────── Access ─────────────
+-- Every signed-in staff member can see and edit everything.
+-- People who are not signed in can see nothing.
 
-alter table exhibitions    enable row level security;
-alter table vendors        enable row level security;
-alter table stalls         enable row level security;
-alter table accounts       enable row level security;
-alter table bookings       enable row level security;
-alter table booking_stalls enable row level security;
-alter table payments       enable row level security;
-
-create policy "signed-in full access" on exhibitions    for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on vendors        for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on stalls         for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on accounts       for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on bookings       for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on booking_stalls for all to authenticated using (true) with check (true);
-create policy "signed-in full access" on payments       for all to authenticated using (true) with check (true);
+do $$
+declare t text;
+begin
+  foreach t in array array['exhibitions','vendors','stalls','accounts','bookings','booking_stalls','payments','expenses'] loop
+    execute format('alter table %I enable row level security', t);
+    execute format('drop policy if exists "signed-in full access" on %I', t);
+    execute format('create policy "signed-in full access" on %I for all to authenticated using (true) with check (true)', t);
+    execute format('grant select, insert, update, delete on %I to authenticated', t);
+    execute format('revoke all on %I from anon', t);
+  end loop;
+end $$;
 
 revoke execute on function create_booking(uuid, uuid, date, numeric, text, uuid[]) from public, anon;
 revoke execute on function cancel_booking(uuid) from public, anon;
 grant execute on function create_booking(uuid, uuid, date, numeric, text, uuid[]) to authenticated;
 grant execute on function cancel_booking(uuid) to authenticated;
 
--- Live updates on every phone.
-alter publication supabase_realtime add table stalls, bookings, booking_stalls, payments, vendors, accounts, exhibitions;
+-- ───────────── Live updates on every phone ─────────────
+
+do $$
+declare t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+  foreach t in array array['exhibitions','vendors','stalls','accounts','bookings','booking_stalls','payments','expenses'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;

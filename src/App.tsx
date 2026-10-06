@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { Session } from '@supabase/supabase-js'
-import { DataProvider, supabase, useStore } from './data/store'
+import { DataProvider, missingConfig, supabase, useStore } from './data/store'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import TileView from './pages/TileView'
@@ -24,6 +24,7 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
+  if (missingConfig) return <NotConnected />
   if (supabase && session === undefined) return <Splash />
   if (supabase && !session) return <Login />
   return (
@@ -68,7 +69,7 @@ function Shell() {
         </div>
         {repo.mode === 'demo' && (
           <div className="bg-amber-300 px-4 py-1 text-center text-xs font-medium text-amber-950">
-            Demo mode: sample data saved on this phone only. Connect Supabase to go live.
+            Demo mode: data is saved on this phone only. Connect Supabase to go live.
           </div>
         )}
         {!online && <div className="bg-rose-600 px-4 py-1 text-center text-xs font-medium">You are offline. Changes won’t save until you reconnect.</div>}
@@ -114,6 +115,20 @@ function Tab({ to, icon, label, end }: { to: string; icon: string; label: string
       <span className="text-xl leading-none">{icon}</span>
       {label}
     </NavLink>
+  )
+}
+
+function NotConnected() {
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center gap-4 bg-brand-900 px-6 text-center text-white">
+      <img src={icon} alt="" className="h-16 w-16 rounded-2xl" />
+      <h1 className="text-xl font-semibold">App is not connected to the database</h1>
+      <p className="max-w-sm text-sm text-brand-200">
+        This build has no Supabase keys. In Vercel, open Project → Settings → Environment Variables, add
+        <b className="text-white"> VITE_SUPABASE_URL</b> and <b className="text-white">VITE_SUPABASE_ANON_KEY</b>,
+        then redeploy.
+      </p>
+    </div>
   )
 }
 

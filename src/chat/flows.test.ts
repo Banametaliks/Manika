@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { localRepo } from '../data/local'
+import { sampleData } from '../data/sample-data'
 import type { Repo } from '../data/repo'
 import type { Store } from '../data/store'
 import { buildIndex, tileSummaries } from '../lib/compute'
@@ -30,7 +31,7 @@ const chip = (label: string) => {
 }
 
 beforeEach(async () => {
-  store = await makeStore(localRepo())
+  store = await makeStore(localRepo({ initial: sampleData }))
   chat = new ChatController(router, menu)
   chat.setContext(() => store)
   chat.start()
