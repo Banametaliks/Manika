@@ -22,6 +22,25 @@ export const repo: Repo = supabase ? supabaseRepo(supabase) : localRepo()
  */
 export const missingConfig = !supabase && import.meta.env.PROD && import.meta.env.VITE_PREVIEW !== '1'
 
+/**
+ * True when the database answers. Any HTTP reply counts (even 401): only a
+ * network failure means offline. Without Supabase (demo) there is no server
+ * to reach, so the browser's own flag is used.
+ */
+export async function canReachServer(): Promise<boolean> {
+  if (!supabase) return navigator.onLine
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 8000)
+  try {
+    await fetch(`${url}/auth/v1/health`, { headers: { apikey: key }, cache: 'no-store', signal: ctrl.signal })
+    return true
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 const EX_KEY = 'manika-exhibition-id'
 const EMPTY: ExhibitionRows = { stalls: [], bookings: [], bookingStalls: [], payments: [], expenses: [] }
 

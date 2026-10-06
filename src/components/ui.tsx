@@ -1,14 +1,30 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { STATUS_LABEL, type StallStatus } from '../lib/compute'
+import { canReachServer } from '../data/store'
 
+/**
+ * Whether the app can reach its database. navigator.onLine alone is not trusted:
+ * some computers (VPNs, virtual network adapters) report offline while the
+ * internet works. When the browser says offline, the server is checked, and
+ * re-checked every 15 seconds while it stays unreachable.
+ */
 export function useOnline() {
-  const [online, setOnline] = useState(() => navigator.onLine)
+  const [online, setOnline] = useState(true)
   useEffect(() => {
-    const on = () => setOnline(true)
-    const off = () => setOnline(false)
+    let live = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const check = async () => {
+      clearTimeout(timer)
+      const ok = navigator.onLine || (await canReachServer())
+      if (!live) return
+      setOnline(ok)
+      if (!ok) timer = setTimeout(check, 15000)
+    }
+    const on = () => { clearTimeout(timer); setOnline(true) }
     window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+    window.addEventListener('offline', check)
+    void check()
+    return () => { live = false; clearTimeout(timer); window.removeEventListener('online', on); window.removeEventListener('offline', check) }
   }, [])
   return online
 }
