@@ -5,7 +5,7 @@ import type { Repo } from '../data/repo'
 import type { Store } from '../data/store'
 import { buildIndex, tileSummaries } from '../lib/compute'
 import { ChatController, type Msg } from './engine'
-import { menu, router } from './flows'
+import { menu, router, splitDue } from './flows'
 
 /** A Store backed by the in-memory demo repo, refreshed like the real one. */
 async function makeStore(repo: Repo): Promise<Store> {
@@ -15,7 +15,8 @@ async function makeStore(repo: Repo): Promise<Store> {
     const exhibition = exhibitions[0]
     const rows = await repo.loadExhibition(exhibition.id)
     const idx = buildIndex({ ...rows, vendors })
-    Object.assign(s, { exhibitions, exhibition, vendors, accounts, rows, idx, tiles: tileSummaries(rows.stalls, idx) })
+    const tasks = await repo.listTasks(exhibition.id)
+    Object.assign(s, { exhibitions, exhibition, vendors, accounts, rows, idx, tasks, tasksError: null, me: 'staff@manika.in', tiles: tileSummaries(rows.stalls, idx) })
   }
   await s.refresh()
   return s
@@ -208,5 +209,35 @@ describe('expenses and profit', () => {
     await chat.send('profit')
     expect(last().card).toBeUndefined()
     expect(last().chips?.[0]).toMatchObject({ to: '/masters?tab=profit' })
+  })
+})
+
+describe('to-do', () => {
+  const settle = () => new Promise((r) => setTimeout(r, 0))
+
+  it('splits a due date off the end of a task', () => {
+    const t = '2026-10-08'
+    expect(splitDue('call electrician tomorrow').title).toBe('call electrician')
+    expect(splitDue('print banners by 12/10').due?.slice(5)).toBe('10-12')
+    expect(splitDue('book hall 16 oct')).toEqual({ title: 'book hall', due: expect.stringMatching(/-10-16$/) })
+    expect(splitDue('order 50 chairs')).toEqual({ title: 'order 50 chairs', due: null })
+    expect(t).toBeTruthy()
+  })
+
+  it('adds a task from the chat and ticks it off', async () => {
+    await chat.send('todo call electrician tomorrow')
+    expect(last().text).toMatch(/Added to the to-do list: “call electrician” · due/)
+    await settle()
+    expect(store.tasks).toHaveLength(1)
+    expect(store.tasks[0]).toMatchObject({ title: 'Call electrician', done: false, created_by: 'staff@manika.in' })
+
+    await chat.send('todo')
+    expect(last().text).toMatch(/1 open task/)
+    await chip('Call electrician')
+    expect(last().text).toBe('✔️ Done: Call electrician')
+    await settle()
+    expect(store.tasks[0]).toMatchObject({ done: true, done_by: 'staff@manika.in' })
+    await chat.send('todo')
+    expect(last().text).toMatch(/No open tasks/)
   })
 })

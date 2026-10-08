@@ -5,7 +5,9 @@ import { fmtDate, inr, inrShort, today } from '../lib/format'
 import { Empty } from '../components/ui'
 
 export default function Dashboard() {
-  const { exhibition, tiles, rows } = useStore()
+  const { exhibition, tiles, rows, tasks } = useStore()
+  const openTasks = tasks.filter((t) => !t.done)
+  const overdueTasks = openTasks.filter((t) => t.due_date && t.due_date < today()).length
   if (!exhibition)
     return <Empty>No exhibition yet. Go to <Link className="font-semibold text-brand-800 underline" to="/masters">Masters</Link> to create one and add stalls.</Empty>
 
@@ -29,6 +31,15 @@ export default function Dashboard() {
         <Stat label="Collected" value={inrShort(t.collected)} />
         <Stat label="Pending" value={inrShort(t.pending)} alert={t.pending > 0} />
       </section>
+
+      <Link to="/todo" className="card flex items-center justify-between px-4 py-3 text-sm active:scale-[.99]">
+        <span className="text-stone-500">✅ To-do</span>
+        <span className="font-semibold">
+          {openTasks.length ? `${openTasks.length} open` : 'All done'}
+          {overdueTasks > 0 && <span className="text-rose-700"> · {overdueTasks} overdue</span>}
+          <span className="ml-1 text-stone-400">›</span>
+        </span>
+      </Link>
 
       <section className="card flex items-center justify-between px-4 py-3 text-sm">
         <span className="text-stone-500">Today’s collection</span>

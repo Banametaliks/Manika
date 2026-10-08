@@ -17,7 +17,7 @@ export function sampleData(): DB {
       id: exId, name: 'Manika Diwali Expo 2026', venue: 'Exhibition Ground', city: 'Pune',
       start_date: start, end_date: addDays(start, 4), is_active: true, created_at: now(),
     }],
-    vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [], expenses: [],
+    vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [], expenses: [], tasks: [],
     seq: { booking: 0, receipt: 0, expense: 0 },
   }
 

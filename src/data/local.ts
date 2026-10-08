@@ -1,5 +1,5 @@
 import type {
-  Account, Booking, BookingStall, Exhibition, Expense, Payment, Stall, Vendor,
+  Account, Booking, BookingStall, Exhibition, Expense, Payment, Stall, Task, Vendor,
 } from '../lib/types'
 import type { MasterTable, Repo } from './repo'
 
@@ -17,6 +17,7 @@ export interface DB {
   booking_stalls: BookingStall[]
   payments: Payment[]
   expenses: Expense[]
+  tasks: Task[]
   seq: { booking: number; receipt: number; expense: number }
 }
 
@@ -117,6 +118,7 @@ export function localRepo(opts: { initial?: () => DB } = {}): Repo {
         (table === 'exhibitions' && (db.bookings.some((b) => b.exhibition_id === id) || db.expenses.some((e) => e.exhibition_id === id)))
       if (inUse) throw new Error('This record is in use and cannot be deleted.')
       if (table === 'exhibitions') db.stalls = db.stalls.filter((s) => s.exhibition_id !== id)
+      if (table === 'exhibitions') db.tasks = db.tasks.filter((t) => t.exhibition_id !== id)
       ;(db as unknown as Record<string, { id: string }[]>)[table] = (db[table] as { id: string }[]).filter((r) => r.id !== id)
       commit()
     },
@@ -183,6 +185,29 @@ export function localRepo(opts: { initial?: () => DB } = {}): Repo {
       commit()
     },
 
+    listTasks: async (exhibitionId) =>
+      clone(db.tasks.filter((t) => t.exhibition_id === null || t.exhibition_id === exhibitionId)),
+
+    async createTask(t) {
+      if (!t.title.trim()) throw new Error('Type what needs to be done')
+      const row: Task = { ...t, id: uid(), created_at: now() }
+      db.tasks.push(row)
+      commit()
+      return clone(row)
+    },
+
+    async updateTask(id, patch) {
+      const row = db.tasks.find((x) => x.id === id)
+      if (!row) throw new Error('Task not found')
+      Object.assign(row, patch)
+      commit()
+    },
+
+    async deleteTask(id) {
+      db.tasks = db.tasks.filter((x) => x.id !== id)
+      commit()
+    },
+
     subscribe(fn) {
       listeners.add(fn)
       return () => listeners.delete(fn)
@@ -194,6 +219,7 @@ export function localRepo(opts: { initial?: () => DB } = {}): Repo {
 /** Adds what newer versions expect to demo data saved by an older version. */
 function upgrade(db: DB): DB {
   db.expenses ??= []
+  db.tasks ??= []
   db.seq.expense ??= db.expenses.length
   return db
 }
@@ -204,7 +230,7 @@ export function resetDemo() {
 
 export function emptyDB(): DB {
   return {
-    exhibitions: [], vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [], expenses: [],
+    exhibitions: [], vendors: [], stalls: [], accounts: [], bookings: [], booking_stalls: [], payments: [], expenses: [], tasks: [],
     seq: { booking: 0, receipt: 0, expense: 0 },
   }
 }

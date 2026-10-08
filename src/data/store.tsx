@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Account, Exhibition, ID, Vendor } from '../lib/types'
+import type { Account, Exhibition, ID, Task, Vendor } from '../lib/types'
 import { buildIndex, tileSummaries, type Index, type TileSummary } from '../lib/compute'
 import type { ExhibitionRows, Repo } from './repo'
 import { createSupabaseClient, supabaseRepo } from './supabase'
@@ -56,6 +56,11 @@ export interface Store {
   rows: ExhibitionRows
   idx: Index
   tiles: TileSummary[]
+  tasks: Task[]
+  /** Set when the to-do list could not load (e.g. tasks table not created yet). */
+  tasksError: string | null
+  /** Signed-in staff member's email ("You" in demo mode). */
+  me: string
   refresh(): Promise<void>
 }
 
@@ -66,6 +71,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [rows, setRows] = useState<ExhibitionRows>(EMPTY)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasksError, setTasksError] = useState<string | null>(null)
+  const [me, setMe] = useState('You')
   const [exId, setExId] = useState<ID | null>(() => safeGet(EX_KEY))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -82,7 +90,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       let id = exIdRef.current
       if (!id || !ex.some((e) => e.id === id)) id = (ex.find((e) => e.is_active) ?? ex[0])?.id ?? null
       if (id !== exIdRef.current) { exIdRef.current = id; setExId(id) }
-      setRows(id ? await repo.loadExhibition(id) : EMPTY)
+      // The to-do list loads on its own so a problem there never blocks bookings and payments.
+      const [r, t] = await Promise.all([
+        id ? repo.loadExhibition(id) : EMPTY,
+        repo.listTasks(id).then((list) => ({ list, err: null }), (e: unknown) => ({ list: [] as Task[], err: e instanceof Error ? e.message : String(e) })),
+      ])
+      setRows(r)
+      setTasks(t.list)
+      setTasksError(t.err)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -92,6 +107,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => { void refresh() }, [refresh, exId])
+
+  useEffect(() => {
+    supabase?.auth.getSession().then(({ data }) => { if (data.session?.user.email) setMe(data.session.user.email) })
+  }, [])
 
   // Live updates: coalesce bursts of change events into one reload.
   useEffect(() => {
@@ -114,7 +133,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value: Store = {
     repo, loading, error, exhibitions, exhibition, setExhibitionId,
-    vendors, accounts, rows, idx, tiles, refresh,
+    vendors, accounts, rows, idx, tiles, tasks, tasksError, me, refresh,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

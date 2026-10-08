@@ -14,6 +14,7 @@ Mobile-first PWA for managing exhibition stalls, vendors and payments. Bookings 
 - **Voice input**: tap 🎤 in the chat and speak (Indian English). Phrases like “pay Ramesh ten thousand rupees cash”, “A dash 7” or “16th of October” are understood, and saying a button's words (“full”, “cash”, “today”, “save”) taps it. Uses the phone browser's built-in speech recognition (Chrome on Android, Safari on iPhone); needs the site on HTTPS and microphone permission.
 - **Expenses**: record exhibition expenses in the chat (`expense electricity 5000 cash`, `spent 300 tea`, or by voice). The Expenses tab shows total spent, a breakdown by category and every voucher (edit or delete). Expenses show as money out in the cash and bank books.
 - **Profit (Masters → Profit)**: income statement for the selected exhibition: every booking as income, every expense by category, net profit, cash profit so far and what's still to collect. Profit is shown only here, not on the dashboard, Expenses tab or chat.
+- **To-do list**: shared task list for the team (To-do tab). Add with a due date and who it's for, tick to complete (struck through, with who did it and when), edit or delete. Overdue tasks show in red; the dashboard shows open / overdue counts. In the chat: `todo call electrician tomorrow` adds a task, `todo` lists open ones to tick off. Tasks belong to the current exhibition or can be marked general.
 - **Bookings and payments**: search, filter by due or paid, cancel a booking, delete a receipt, share on WhatsApp.
 - **Masters**:
   - Exhibitions (several, sharing one vendor list)
@@ -49,6 +50,8 @@ With no Supabase keys, `npm run dev` runs in **demo mode**: data is kept in the 
 5. In Vercel, open **Project → Settings → Environment Variables** and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (for Production and Preview). If you connected Supabase through Vercel's Supabase integration, its variables (`NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_ANON_KEY`, or the `…PUBLISHABLE_KEY` versions) are picked up automatically. Never use the service role key: the build leaves it out and the app says so. Then **Deployments → ⋯ → Redeploy**: the keys are built into the app, so a redeploy is needed after adding or changing them. Without them the live site shows an "App is not connected" screen instead of running in demo mode.
 6. In the app: Masters → Exhibitions → New, then Stalls → Bulk add, then add your Bank and Cash accounts.
 
+If you ran `setup.sql` before the to-do list existed, also run `supabase/tasks.sql` once (or simply re-run `setup.sql`).
+
 To wipe test entries before going live, run `supabase/reset-data.sql` (deletes all data, keeps the tables; numbering restarts at 1).
 
 ## Layout
@@ -58,8 +61,8 @@ src/
   chat/       engine.ts (conversation runner), flows.ts (book / pay / vendor / questions), parse.ts
   data/       repo.ts (interface), supabase.ts, local.ts (demo), store.tsx (React state + live refresh)
   lib/        compute.ts (stall status, balances, tile summaries), format.ts, share.ts (WhatsApp)
-  pages/      Dashboard, TileView, Chat, Bookings, Expenses, Masters, VendorLedger, AccountBook, Login
-supabase/setup.sql (database), reset-data.sql (wipe all data)
+  pages/      Dashboard, TileView, Chat, Bookings, Expenses, Todo, Masters, VendorLedger, AccountBook, Login
+supabase/setup.sql (database), tasks.sql (to-do table only), reset-data.sql (wipe all data)
 ```
 
 ## Next (Phase 2 ideas)

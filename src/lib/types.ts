@@ -108,3 +108,18 @@ export interface Expense {
   notes: string | null
   created_at: string
 }
+
+export interface Task {
+  id: ID
+  /** null = general task, shown in every exhibition */
+  exhibition_id: ID | null
+  title: string
+  notes: string | null
+  assigned_to: string | null
+  due_date: string | null
+  done: boolean
+  done_at: string | null
+  done_by: string | null
+  created_by: string | null
+  created_at: string
+}

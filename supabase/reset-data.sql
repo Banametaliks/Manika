@@ -5,5 +5,5 @@
 -- ═══════════════════════════════════════════════════════════════════
 
 truncate table
-  expenses, payments, booking_stalls, bookings, stalls, accounts, vendors, exhibitions
+  tasks, expenses, payments, booking_stalls, bookings, stalls, accounts, vendors, exhibitions
   restart identity;   -- booking, receipt and voucher numbers start again from 1

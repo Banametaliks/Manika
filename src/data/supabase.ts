@@ -107,6 +107,19 @@ export function supabaseRepo(sb: SupabaseClient): Repo {
     async deleteExpense(id) {
       check(await sb.from('expenses').delete().eq('id', id))
     },
+    listTasks(exhibitionId) {
+      const q = sb.from('tasks').select('*')
+      return all(exhibitionId ? q.or(`exhibition_id.eq.${exhibitionId},exhibition_id.is.null`) : q.is('exhibition_id', null)) as never
+    },
+    async createTask(t) {
+      return check(await sb.from('tasks').insert(t).select().single()) as never
+    },
+    async updateTask(id, patch) {
+      check(await sb.from('tasks').update(patch).eq('id', id))
+    },
+    async deleteTask(id) {
+      check(await sb.from('tasks').delete().eq('id', id))
+    },
 
     subscribe(onChange) {
       const ch = sb

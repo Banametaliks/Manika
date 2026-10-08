@@ -1,5 +1,5 @@
 import type {
-  Account, Booking, BookingStall, Exhibition, Expense, ID, Insert, Payment, Stall, Vendor,
+  Account, Booking, BookingStall, Exhibition, Expense, ID, Insert, Payment, Stall, Task, Vendor,
 } from '../lib/types'
 
 export interface MasterTables {
@@ -21,6 +21,7 @@ export interface NewBooking {
 
 export type NewPayment = Omit<Insert<Payment>, 'receipt_no'>
 export type NewExpense = Omit<Insert<Expense>, 'voucher_no'>
+export type NewTask = Insert<Task>
 
 export interface ExhibitionRows {
   stalls: Stall[]
@@ -57,6 +58,12 @@ export interface Repo {
   createExpense(e: NewExpense): Promise<Expense>
   updateExpense(id: ID, patch: Partial<NewExpense>): Promise<void>
   deleteExpense(id: ID): Promise<void>
+
+  /** Tasks of one exhibition plus general tasks (no exhibition). */
+  listTasks(exhibitionId: ID | null): Promise<Task[]>
+  createTask(t: NewTask): Promise<Task>
+  updateTask(id: ID, patch: Partial<NewTask>): Promise<void>
+  deleteTask(id: ID): Promise<void>
 
   /** Calls back whenever data changes (on this device or another). Returns unsubscribe. */
   subscribe(onChange: () => void): () => void

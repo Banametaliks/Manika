@@ -11,6 +11,7 @@ import Masters from './pages/Masters'
 import VendorLedger from './pages/VendorLedger'
 import AccountBook from './pages/AccountBook'
 import Expenses from './pages/Expenses'
+import Todo from './pages/Todo'
 import { useOnline } from './components/ui'
 import icon from './assets/icon.svg'
 
@@ -83,6 +84,7 @@ function Shell() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/bookings" element={<Bookings />} />
           <Route path="/expenses" element={<Expenses />} />
+          <Route path="/todo" element={<Todo />} />
           <Route path="/masters" element={<Masters />} />
           <Route path="/vendors/:id" element={<VendorLedger />} />
           <Route path="/accounts/:id" element={<AccountBook />} />
@@ -91,11 +93,12 @@ function Shell() {
       </main>
 
       <nav className={`pb-safe ${isChat ? '' : 'fixed bottom-0 left-0 right-0'} z-20 border-t border-stone-200 bg-white`}>
-        <div className="mx-auto grid max-w-xl grid-cols-5">
+        <div className="mx-auto grid max-w-xl grid-cols-6">
           <Tab to="/" icon="▦" label="Dashboard" end />
           <Tab to="/chat" icon="💬" label="Chat" />
           <Tab to="/bookings" icon="🧾" label="Bookings" />
           <Tab to="/expenses" icon="💸" label="Expenses" />
+          <Tab to="/todo" icon="✅" label="To-do" />
           <Tab to="/masters" icon="⚙︎" label="Masters" />
         </div>
       </nav>
@@ -109,7 +112,7 @@ function Tab({ to, icon, label, end }: { to: string; icon: string; label: string
       to={to}
       end={end}
       className={({ isActive }) =>
-        `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${isActive ? 'text-brand-800' : 'text-stone-500'}`
+        `flex min-w-0 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${isActive ? 'text-brand-800' : 'text-stone-500'}`
       }
     >
       <span className="text-xl leading-none">{icon}</span>

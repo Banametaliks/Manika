@@ -817,6 +817,61 @@ function profitReply(): Prompt {
   }
 }
 
+// ───────────── To-do ─────────────
+
+/** Splits a trailing due date off a task: "call electrician tomorrow" → title + date. */
+export function splitDue(text: string): { title: string; due: string | null } {
+  const words = text.trim().split(/\s+/)
+  for (const n of [3, 2, 1]) {
+    if (words.length <= n) continue
+    const tail = words.slice(-n).join(' ').replace(/^(by|on|before)\s+/i, '')
+    const d = parseDate(tail)
+    if (d) {
+      const head = words.slice(0, -n).join(' ').replace(/\s+(by|on|before)$/i, '')
+      return { title: head, due: d }
+    }
+  }
+  return { title: text.trim(), due: null }
+}
+
+function addTaskReply(ctx: Ctx, text: string): Prompt {
+  const { title, due } = splitDue(text)
+  if (!title) return tasksReply(ctx)
+  void ctx.repo.createTask({
+    exhibition_id: ctx.exhibition?.id ?? null, title: title.charAt(0).toUpperCase() + title.slice(1), notes: null,
+    assigned_to: null, due_date: due, done: false, done_at: null, done_by: null, created_by: ctx.me,
+  }).then(() => ctx.refresh(), (e) => console.error('Could not add task', e))
+  return {
+    text: `✅ Added to the to-do list: “${title}”${due ? ` · due ${fmtDate(due)}` : ''}.`,
+    chips: [{ label: 'Open to-do', to: '/todo', tone: 'primary' }, { label: 'Add another', value: 'todo' }, { label: 'Menu', value: '__menu' }],
+  }
+}
+
+function tasksReply(ctx: Ctx): Prompt & { card?: Card } {
+  const open = ctx.tasks.filter((t) => !t.done).sort((a, b) => (a.due_date ?? '9').localeCompare(b.due_date ?? '9'))
+  if (!open.length)
+    return { text: 'No open tasks. Type “todo” followed by the task to add one, e.g. “todo call electrician tomorrow”.', chips: [{ label: 'Open to-do', to: '/todo' }, { label: 'Menu', value: '__menu' }] }
+  const t0 = today()
+  return {
+    text: `${open.length} open task${open.length > 1 ? 's' : ''}. Tap one to mark it done:`,
+    card: {
+      title: 'To-do',
+      rows: open.slice(0, 12).map((t) => [t.title, t.due_date ? (t.due_date < t0 ? `overdue · ${fmtDate(t.due_date)}` : fmtDate(t.due_date)) : '']),
+    },
+    chips: [
+      ...open.slice(0, 6).map((t) => ({ label: `☐ ${t.title.length > 28 ? `${t.title.slice(0, 27)}…` : t.title}`, value: `done task:${t.id}` })),
+      { label: 'Open to-do', to: '/todo', tone: 'primary' as const },
+    ],
+  }
+}
+
+function completeTaskReply(ctx: Ctx, id: string): Prompt {
+  const t = ctx.tasks.find((x) => x.id === id.trim())
+  if (!t) return { text: 'That task was not found. It may have been deleted.', chips: [{ label: 'Open to-do', to: '/todo' }] }
+  void ctx.repo.updateTask(t.id, { done: true, done_at: new Date().toISOString(), done_by: ctx.me }).then(() => ctx.refresh(), (e) => console.error('Could not complete task', e))
+  return { text: `✔️ Done: ${t.title}`, chips: [{ label: 'More tasks', value: 'todo' }, { label: 'Menu', value: '__menu' }] }
+}
+
 // ───────────── Router: understands free text when no flow is running ─────────────
 
 export function menu(ctx: Ctx): Prompt {
@@ -830,6 +885,7 @@ export function menu(ctx: Ctx): Prompt {
       { label: '💰 Payment', value: 'pay', tone: 'primary' },
       { label: '➕ New vendor', value: 'vendor' },
       { label: '🧾 Expense', value: 'expense' },
+      { label: '✅ To-do', value: 'todo' },
       { label: '📋 Pending dues', value: 'pending' },
       { label: '🟩 Free stalls', value: 'free' },
       { label: '❓ Help', value: 'help' },
@@ -842,6 +898,8 @@ const HELP = `You can tap the buttons or type short commands:
 • pay ramesh 10000 upi
 • pay A-7 5000 cash yesterday
 • expense electricity 5000 cash
+• todo call electrician tomorrow
+• todo  (open tasks)
 • status A-7
 • balance ramesh
 • free B  (free stalls in tile B)
@@ -858,6 +916,9 @@ export const router: Router = (text, ctx) => {
   const as = (f: Flow<any>) => f as Flow<unknown>
 
   if (/^(book|booking|new booking|book stall)\b/i.test(s)) return { start: as(bookFlow), prefill: rest(/^(new booking|book stall|booking|book)\b/i) }
+  if (/^(todo|to-do|to do|tasks?|remind me( to)?)$/i.test(s)) return { reply: tasksReply(ctx) }
+  if (/^(todo|to-do|to do|task|remind me to|remind me)\b/i.test(s)) return { reply: addTaskReply(ctx, rest(/^(todo|to-do|to do|task|remind me to|remind me)\b[:\s-]*/i)) }
+  if (/^(done|complete|completed)\s+task:/i.test(s)) return { reply: completeTaskReply(ctx, s.replace(/^(done|complete|completed)\s+task:/i, '')) }
   if (/^(expenses?|exp|spent|spend|kharcha|kharch)\b/i.test(s)) return { start: as(expenseFlow), prefill: rest(/^(expenses?|exp|spent|spend|kharcha|kharch)\b/i) }
   // "paid electricity 5000" is money going out; "paid ramesh 5000" is money coming in.
   if (/^paid\b/i.test(s) && matchCategory(rest(/^paid\b/i).split(/\s+/).find((w) => !/^(for|to|\d.*)$/i.test(w)) ?? '', [...EXPENSE_CATEGORIES]))
